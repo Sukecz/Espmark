@@ -43,6 +43,7 @@ community result registry.
 
 ```text
 main/                 ESP-IDF firmware
+assets/               Project logos and static assets
 boards/               Board manifests
 soc_caps/             SoC capability manifests
 schemas/              JSON schemas for manifests and result bundles
@@ -61,4 +62,3 @@ espmark.md            Long-form project notes and roadmap
 ## License
 
 Apache-2.0. See `LICENSE`.
-
