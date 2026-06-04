@@ -145,7 +145,6 @@ select {
 
 .action-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 10px;
   margin-bottom: 10px;
 }
@@ -213,6 +212,13 @@ button.ghost {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.45;
+}
+
+.serial-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .serial-log {

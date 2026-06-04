@@ -18,6 +18,7 @@ let currentResult;
 let textBuffer = "";
 let jsonCapture = "";
 let capturingJson = false;
+let autoRequestingJson = false;
 
 function setBrowserStatus() {
   if ("serial" in navigator) {
@@ -35,8 +36,20 @@ function appendLog(text) {
   if (serialLog.textContent === "Connect an ESP32 board to begin.") {
     serialLog.textContent = "";
   }
-  serialLog.textContent += text;
+  serialLog.textContent += filterSerialText(text);
   serialLog.scrollTop = serialLog.scrollHeight;
+}
+
+function filterSerialText(text) {
+  const hiddenLines = new Set([
+    "Press 'j' then Enter to print JSON for sharing.",
+    "Press Enter to run the benchmark again.",
+  ]);
+
+  return text
+    .split(/(\r?\n)/)
+    .filter((part) => !hiddenLines.has(part.trim()))
+    .join("");
 }
 
 function metricLabel(testId) {
@@ -58,6 +71,8 @@ function renderCurrentResult(result) {
   currentResult = result;
   resultState.textContent = "Ready to save";
   submitButton.disabled = false;
+  jsonButton.disabled = false;
+  autoRequestingJson = false;
 
   resultSummary.classList.remove("empty");
   resultSummary.innerHTML = "";
@@ -104,6 +119,16 @@ function parseSerialLine(line) {
     } catch (error) {
       resultState.textContent = "JSON parse failed";
       appendLog(`\n[web] JSON parse failed: ${error.message}\n`);
+    }
+    return;
+  }
+
+  if (trimmed === "Press 'j' then Enter to print JSON for sharing.") {
+    if (!autoRequestingJson) {
+      autoRequestingJson = true;
+      resultState.textContent = "Reading result";
+      jsonButton.disabled = true;
+      sendSerial("j\n");
     }
     return;
   }
@@ -161,7 +186,7 @@ async function connectSerial() {
   runButton.disabled = false;
   jsonButton.disabled = false;
   resultState.textContent = "Connected";
-  appendLog("[web] Connected. If the board asks for Enter, click Start benchmark.\n");
+  appendLog("[web] Connected. Click Start benchmark below Live Serial.\n");
   readLoop();
 }
 
@@ -212,6 +237,11 @@ connectButton.addEventListener("click", () => {
 });
 
 runButton.addEventListener("click", () => {
+  currentResult = undefined;
+  submitButton.disabled = true;
+  resultState.textContent = "Benchmark running";
+  resultSummary.classList.add("empty");
+  resultSummary.textContent = "Waiting for benchmark output from the board.";
   sendSerial("\n");
 });
 

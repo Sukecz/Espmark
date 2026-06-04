@@ -38,8 +38,8 @@ step is web flashing with prebuilt firmware binaries.
 3. Upload the sketch.
 4. Open `https://espmark.msmeteo.cz` in Chrome or Edge.
 5. Click `Connect USB`.
-6. When the board asks for Enter, click `Start benchmark`.
-7. Click `Request JSON`.
+6. Click `Start benchmark` under `Live Serial`.
+7. Wait for the web page to read the JSON result automatically.
 8. Click `Save Result` to store it in the local browser table.
 
 Web Serial requires HTTPS. The LAN URL can show the page, but browser serial

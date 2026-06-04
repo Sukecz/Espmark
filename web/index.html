@@ -35,8 +35,6 @@
 
           <div class="action-grid">
             <button id="connectButton" type="button">Connect USB</button>
-            <button id="runButton" type="button" disabled>Start benchmark</button>
-            <button id="jsonButton" type="button" disabled>Request JSON</button>
             <button id="submitButton" type="button" disabled>Save Result</button>
           </div>
 
@@ -53,9 +51,13 @@
             <button class="ghost" id="clearLogButton" type="button">Clear</button>
           </div>
           <p class="hint">
-            When the board asks for Enter, click <strong>Start benchmark</strong>.
-            The web page sends the command over USB serial.
+            Connect the board, then start the benchmark from here. The web page
+            sends the serial command and captures the JSON result automatically.
           </p>
+          <div class="serial-actions">
+            <button id="runButton" type="button" disabled>Start benchmark</button>
+            <button id="jsonButton" class="secondary" type="button" disabled>Read result JSON</button>
+          </div>
           <pre id="serialLog" class="serial-log">Connect an ESP32 board to begin.</pre>
         </div>
 
@@ -65,7 +67,7 @@
             <span id="resultState">No result yet</span>
           </div>
           <div id="resultSummary" class="summary empty">
-            Run the benchmark, then request JSON from the board.
+            Run the benchmark. The web page will read the JSON result automatically.
           </div>
         </div>
       </section>
