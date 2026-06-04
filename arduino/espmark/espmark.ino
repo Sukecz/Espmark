@@ -2,8 +2,7 @@
   espmark Arduino starter firmware
 
   Open this folder in Arduino IDE, select your ESP32 board, upload, and open
-  Serial Monitor at 115200 baud. The benchmark result is printed as JSON between
-  ESPMARK_RESULT_BEGIN and ESPMARK_RESULT_END markers.
+  Serial Monitor at 115200 baud. Press Enter to start the benchmark.
 */
 
 #include <Arduino.h>
@@ -13,6 +12,9 @@
 #define ESPMARK_FIRMWARE_VERSION "0.1.0-arduino"
 #define ESPMARK_CPU_REPEAT 20
 #define ESPMARK_CPU_INNER_ITERATIONS 25000UL
+#define ESPMARK_BOARD_VENDOR "Seeed Studio"
+#define ESPMARK_BOARD_NAME "XIAO ESP32C6"
+#define ESPMARK_BOARD_TARGET "XIAO_ESP32C6"
 
 struct Metric {
   const char *id;
@@ -25,6 +27,9 @@ struct Metric {
   double stdev;
   double p95;
 };
+
+static Metric gMetrics[4];
+static bool gHasResults = false;
 
 typedef uint32_t (*KernelFn)(uint32_t iterations, uint32_t seed);
 
@@ -135,7 +140,7 @@ static Metric runKernel(const char *id, KernelFn kernel) {
   return summarizeUs(id, samples, ESPMARK_CPU_REPEAT);
 }
 
-static void printMetric(const Metric &metric, bool last) {
+static void printJsonMetric(const Metric &metric, bool last) {
   Serial.print("    {");
   Serial.print("\"test_id\":\"");
   Serial.print(metric.id);
@@ -160,7 +165,7 @@ static void printMetric(const Metric &metric, bool last) {
   Serial.println(last ? "" : ",");
 }
 
-static void printMetadataPrefix() {
+static void printJsonResult() {
   Serial.println("ESPMARK_RESULT_BEGIN");
   Serial.println("{");
   Serial.print("  \"schema_version\": \"");
@@ -170,8 +175,12 @@ static void printMetadataPrefix() {
   Serial.print(ESPMARK_FIRMWARE_VERSION);
   Serial.println("\",");
   Serial.println("  \"board\": {");
-  Serial.println("    \"vendor\": \"user-selected\",");
-  Serial.println("    \"name\": \"arduino-board\",");
+  Serial.print("    \"vendor\": \"");
+  Serial.print(ESPMARK_BOARD_VENDOR);
+  Serial.println("\",");
+  Serial.print("    \"name\": \"");
+  Serial.print(ESPMARK_BOARD_NAME);
+  Serial.println("\",");
   Serial.print("    \"module\": \"");
   Serial.print(ESP.getChipModel());
   Serial.println("\",");
@@ -186,7 +195,9 @@ static void printMetadataPrefix() {
   Serial.print("    \"sdk_version\": \"");
   Serial.print(ESP.getSdkVersion());
   Serial.println("\",");
-  Serial.println("    \"target\": \"arduino-selected\"");
+  Serial.print("    \"target\": \"");
+  Serial.print(ESPMARK_BOARD_TARGET);
+  Serial.println("\"");
   Serial.println("  },");
   Serial.println("  \"config\": {");
   Serial.print("    \"cpu_freq_mhz\": ");
@@ -205,32 +216,140 @@ static void printMetadataPrefix() {
   Serial.println(ESPMARK_CPU_INNER_ITERATIONS);
   Serial.println("  },");
   Serial.println("  \"results\": [");
-}
-
-static void runCpuBenchmarks() {
-  const Metric addMul = runKernel("cpu.integer.add_mul.u32", kernelAddMul);
-  const Metric divMod = runKernel("cpu.integer.div_mod.u32", kernelDivMod);
-  const Metric branch = runKernel("cpu.integer.branch.u32", kernelBranch);
-  const Metric crc = runKernel("cpu.integer.crc_like.u32", kernelCrcLike);
-
-  printMetric(addMul, false);
-  printMetric(divMod, false);
-  printMetric(branch, false);
-  printMetric(crc, true);
-}
-
-void setup() {
-  Serial.begin(115200);
-  delay(2000);
-
-  printMetadataPrefix();
-  runCpuBenchmarks();
+  printJsonMetric(gMetrics[0], false);
+  printJsonMetric(gMetrics[1], false);
+  printJsonMetric(gMetrics[2], false);
+  printJsonMetric(gMetrics[3], true);
   Serial.println("  ]");
   Serial.println("}");
   Serial.println("ESPMARK_RESULT_END");
 }
 
-void loop() {
-  delay(1000);
+static const char *shortName(const char *id) {
+  if (strcmp(id, "cpu.integer.add_mul.u32") == 0) {
+    return "add/mul";
+  }
+  if (strcmp(id, "cpu.integer.div_mod.u32") == 0) {
+    return "div/mod";
+  }
+  if (strcmp(id, "cpu.integer.branch.u32") == 0) {
+    return "branch";
+  }
+  if (strcmp(id, "cpu.integer.crc_like.u32") == 0) {
+    return "crc-like";
+  }
+  return id;
 }
 
+static void printMetricRow(const Metric &metric) {
+  char line[96];
+  snprintf(
+    line,
+    sizeof(line),
+    "%-10s %10.3f %10.3f %10.3f %10.3f",
+    shortName(metric.id),
+    metric.mean,
+    metric.median,
+    metric.min,
+    metric.p95
+  );
+  Serial.println(line);
+}
+
+static void printIntro() {
+  Serial.println();
+  Serial.println("espmark 0.1.0");
+  Serial.println("Community ESP32 benchmark");
+  Serial.println();
+  Serial.print("Board: ");
+  Serial.println(ESPMARK_BOARD_NAME);
+  Serial.print("Chip: ");
+  Serial.print(ESP.getChipModel());
+  Serial.print(" rev ");
+  Serial.println(ESP.getChipRevision());
+  Serial.print("CPU: ");
+  Serial.print(getCpuFrequencyMhz());
+  Serial.println(" MHz");
+  Serial.print("Flash: ");
+  Serial.print(ESP.getFlashChipSize() / 1024);
+  Serial.println(" KB");
+  Serial.print("Heap: ");
+  Serial.print(ESP.getHeapSize() / 1024);
+  Serial.println(" KB");
+  Serial.println();
+  Serial.println("This benchmark runs four CPU integer tests.");
+  Serial.println("Lower time is better. Results are printed in microseconds.");
+  Serial.println();
+  Serial.println("Press Enter to start.");
+}
+
+static void printHumanReport() {
+  Serial.println();
+  Serial.println("CPU benchmark results");
+  Serial.println("Unit: microseconds per benchmark run. Lower is better.");
+  Serial.println();
+  Serial.println("test             mean     median        min        p95");
+  Serial.println("------------------------------------------------------");
+  for (uint32_t i = 0; i < 4; ++i) {
+    printMetricRow(gMetrics[i]);
+  }
+  Serial.println();
+  Serial.println("Tests:");
+  Serial.println("- add/mul: 32-bit integer addition, multiplication and xor mix");
+  Serial.println("- div/mod: 32-bit integer division and modulo");
+  Serial.println("- branch: branch-heavy integer workload");
+  Serial.println("- crc-like: bit-by-bit CRC-style integer workload");
+  Serial.println();
+  Serial.println("Press 'j' then Enter to print JSON for sharing.");
+  Serial.println("Press Enter to run the benchmark again.");
+}
+
+static void runCpuBenchmarks() {
+  Serial.println();
+  Serial.println("Running CPU benchmark...");
+  Serial.println();
+  gMetrics[0] = runKernel("cpu.integer.add_mul.u32", kernelAddMul);
+  Serial.println("add/mul done");
+  gMetrics[1] = runKernel("cpu.integer.div_mod.u32", kernelDivMod);
+  Serial.println("div/mod done");
+  gMetrics[2] = runKernel("cpu.integer.branch.u32", kernelBranch);
+  Serial.println("branch done");
+  gMetrics[3] = runKernel("cpu.integer.crc_like.u32", kernelCrcLike);
+  Serial.println("crc-like done");
+  gHasResults = true;
+  printHumanReport();
+}
+
+static void waitForCommand() {
+  while (!Serial.available()) {
+    delay(20);
+  }
+
+  bool wantsJson = false;
+  while (Serial.available()) {
+    const char c = (char)Serial.read();
+    if (c == 'j' || c == 'J') {
+      wantsJson = true;
+    }
+    delay(2);
+  }
+
+  if (wantsJson && gHasResults) {
+    printJsonResult();
+    Serial.println();
+    Serial.println("Press Enter to run the benchmark again.");
+    return;
+  }
+
+  runCpuBenchmarks();
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(2000);
+  printIntro();
+}
+
+void loop() {
+  waitForCommand();
+}

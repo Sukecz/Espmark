@@ -3,8 +3,8 @@
 Lightweight community benchmark sketch for ESP32-family boards.
 
 The first version measures basic CPU performance. Users compile the Arduino
-sketch for their own ESP32 board, upload it, and copy the JSON result printed to
-Serial Monitor.
+sketch for their own ESP32 board, upload it, and run the benchmark from Serial
+Monitor.
 
 ## Quick Start
 
@@ -14,11 +14,26 @@ Serial Monitor.
 2. Select your ESP32 board. For the first test board use `XIAO_ESP32C6`.
 3. Upload.
 4. Open Serial Monitor at `115200` baud.
-5. Copy the JSON between `ESPMARK_RESULT_BEGIN` and `ESPMARK_RESULT_END`.
+5. Press Enter to start the benchmark.
+6. Read the human-friendly result table.
+7. Press `j` then Enter to print JSON for sharing.
 
 No ESP-IDF or Docker setup is required for normal users.
 
 ## Output
+
+The normal output is a readable table:
+
+```text
+CPU benchmark results
+Unit: microseconds per benchmark run. Lower is better.
+
+test             mean     median        min        p95
+------------------------------------------------------
+add/mul      2833.950   2835.000   2828.000   2835.000
+```
+
+For future web submissions, press `j` then Enter to print the JSON block:
 
 ```text
 ESPMARK_RESULT_BEGIN
