@@ -40,7 +40,7 @@ step is web flashing with prebuilt firmware binaries.
 5. Click `Connect USB`.
 6. Click `Start benchmark` under `Live Serial`.
 7. Wait for the web page to read the JSON result automatically.
-8. Click `Save Result` to store it in the local browser table.
+8. Enter a name, pass the simple bot check, and click `Save result`.
 
 Web Serial requires HTTPS. The LAN URL can show the page, but browser serial
 access should be tested through `https://espmark.msmeteo.cz`.
@@ -77,6 +77,12 @@ Docker compose service on RPI:
 
 ```text
 espmark-web
+```
+
+Submitted results are stored on RPI:
+
+```text
+/home/msrpi/docker_data/espmark/results.json
 ```
 
 Local LAN URL:
@@ -134,8 +140,8 @@ Deploy to RPI:
 rsync -av --delete web/ rpi5:/home/msrpi/espmark/
 ```
 
-The nginx container uses a bind mount, so static file changes do not require a
-container restart.
+The container uses a bind mount, so static file changes usually do not require a
+restart. If `web/server.py` changes, restart only `espmark-web`.
 
 Verify from RPI:
 

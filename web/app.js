@@ -1,16 +1,25 @@
-const browserStatus = document.querySelector("#browserStatus");
+const themeButton = document.querySelector("#themeButton");
 const connectButton = document.querySelector("#connectButton");
 const runButton = document.querySelector("#runButton");
 const jsonButton = document.querySelector("#jsonButton");
 const submitButton = document.querySelector("#submitButton");
 const clearLogButton = document.querySelector("#clearLogButton");
-const clearResultsButton = document.querySelector("#clearResultsButton");
+const refreshResultsButton = document.querySelector("#refreshResultsButton");
 const serialLog = document.querySelector("#serialLog");
 const resultState = document.querySelector("#resultState");
 const resultSummary = document.querySelector("#resultSummary");
 const resultsTable = document.querySelector("#resultsTable");
+const contributorName = document.querySelector("#contributorName");
+const companyName = document.querySelector("#companyName");
+const botQuestion = document.querySelector("#botQuestion");
+const botCheck = document.querySelector("#botCheck");
+const submitStatus = document.querySelector("#submitStatus");
+const connectionHint = document.querySelector("#connectionHint");
 
-const storageKey = "espmark.localResults.v1";
+const hiddenSerialLines = new Set([
+  "Press 'j' then Enter to print JSON for sharing.",
+  "Press Enter to run the benchmark again.",
+]);
 
 let port;
 let writer;
@@ -19,37 +28,61 @@ let textBuffer = "";
 let jsonCapture = "";
 let capturingJson = false;
 let autoRequestingJson = false;
+let botAnswer = 0;
+let formRenderedAt = Date.now();
 
-function setBrowserStatus() {
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem("espmark.theme", theme);
+  themeButton.textContent = theme === "auto" ? "Auto" : theme === "dark" ? "Dark" : "Light";
+}
+
+function initTheme() {
+  applyTheme(localStorage.getItem("espmark.theme") || "auto");
+}
+
+function nextTheme() {
+  const current = document.documentElement.dataset.theme || "auto";
+  applyTheme(current === "auto" ? "dark" : current === "dark" ? "light" : "auto");
+}
+
+function setupBotCheck() {
+  const a = 2 + Math.floor(Math.random() * 8);
+  const b = 2 + Math.floor(Math.random() * 8);
+  botAnswer = a + b;
+  botQuestion.textContent = `${a} + ${b} =`;
+  formRenderedAt = Date.now();
+}
+
+function setSerialSupport() {
   if ("serial" in navigator) {
-    browserStatus.textContent = "Web Serial supported";
-    browserStatus.classList.add("ok");
+    connectionHint.textContent = "Connect the board over USB, then start the benchmark.";
     return;
   }
 
-  browserStatus.textContent = "Use Chrome or Edge";
-  browserStatus.classList.add("bad");
+  connectionHint.textContent = "Web Serial is unavailable. Use Chrome or Edge over HTTPS.";
   connectButton.disabled = true;
 }
 
-function appendLog(text) {
+function appendLogLine(line) {
+  const trimmed = line.trim();
+  if (!trimmed || hiddenSerialLines.has(trimmed) || capturingJson || trimmed.startsWith("ESPMARK_RESULT_")) {
+    return;
+  }
+
   if (serialLog.textContent === "Connect an ESP32 board to begin.") {
     serialLog.textContent = "";
   }
-  serialLog.textContent += filterSerialText(text);
+  serialLog.textContent += `${line.replace(/\r$/, "")}\n`;
   serialLog.scrollTop = serialLog.scrollHeight;
 }
 
-function filterSerialText(text) {
-  const hiddenLines = new Set([
-    "Press 'j' then Enter to print JSON for sharing.",
-    "Press Enter to run the benchmark again.",
-  ]);
-
-  return text
-    .split(/(\r?\n)/)
-    .filter((part) => !hiddenLines.has(part.trim()))
-    .join("");
+function appendSystemLog(message) {
+  if (serialLog.textContent === "Connect an ESP32 board to begin.") {
+    serialLog.textContent = "";
+  }
+  serialLog.textContent += `[web] ${message}\n`;
+  serialLog.scrollTop = serialLog.scrollHeight;
 }
 
 function metricLabel(testId) {
@@ -69,7 +102,8 @@ function metricValue(result, testId) {
 
 function renderCurrentResult(result) {
   currentResult = result;
-  resultState.textContent = "Ready to save";
+  resultState.textContent = "Ready to submit";
+  submitStatus.textContent = "Enter your name and bot check, then save the result.";
   submitButton.disabled = false;
   jsonButton.disabled = false;
   autoRequestingJson = false;
@@ -118,7 +152,7 @@ function parseSerialLine(line) {
       renderCurrentResult(JSON.parse(jsonCapture));
     } catch (error) {
       resultState.textContent = "JSON parse failed";
-      appendLog(`\n[web] JSON parse failed: ${error.message}\n`);
+      appendSystemLog(`JSON parse failed: ${error.message}`);
     }
     return;
   }
@@ -139,7 +173,6 @@ function parseSerialLine(line) {
 }
 
 function handleSerialText(text) {
-  appendLog(text);
   textBuffer += text;
 
   let newlineIndex = textBuffer.indexOf("\n");
@@ -147,6 +180,7 @@ function handleSerialText(text) {
     const line = textBuffer.slice(0, newlineIndex);
     textBuffer = textBuffer.slice(newlineIndex + 1);
     parseSerialLine(line);
+    appendLogLine(line);
     newlineIndex = textBuffer.indexOf("\n");
   }
 }
@@ -186,53 +220,100 @@ async function connectSerial() {
   runButton.disabled = false;
   jsonButton.disabled = false;
   resultState.textContent = "Connected";
-  appendLog("[web] Connected. Click Start benchmark below Live Serial.\n");
+  appendSystemLog("Connected. Start the benchmark from the control panel.");
   readLoop();
 }
 
-function loadSavedResults() {
-  try {
-    return JSON.parse(localStorage.getItem(storageKey) || "[]");
-  } catch {
-    return [];
+async function fetchResults() {
+  const response = await fetch("/api/results");
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
   }
+  return response.json();
 }
 
-function saveResults(results) {
-  localStorage.setItem(storageKey, JSON.stringify(results));
-}
-
-function renderResultsTable() {
-  const rows = loadSavedResults();
-  resultsTable.innerHTML = "";
-
-  if (rows.length === 0) {
-    const row = document.createElement("tr");
-    row.innerHTML = `<td colspan="8">No saved local results yet.</td>`;
-    resultsTable.appendChild(row);
+async function submitResult() {
+  if (!currentResult) {
     return;
   }
 
-  for (const rowResult of rows) {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${rowResult.board.name}</td>
-      <td>${rowResult.board.soc} r${rowResult.board.revision}</td>
-      <td>${rowResult.config.cpu_freq_mhz} MHz</td>
-      <td>${metricValue(rowResult, "cpu.integer.add_mul.u32")}</td>
-      <td>${metricValue(rowResult, "cpu.integer.div_mod.u32")}</td>
-      <td>${metricValue(rowResult, "cpu.integer.branch.u32")}</td>
-      <td>${metricValue(rowResult, "cpu.integer.crc_like.u32")}</td>
-      <td>${new Date(rowResult.saved_at).toLocaleString()}</td>
-    `;
-    resultsTable.appendChild(row);
+  const name = contributorName.value.trim();
+  const answer = Number(botCheck.value.trim());
+
+  if (name.length < 2) {
+    submitStatus.textContent = "Enter a name or nickname.";
+    return;
+  }
+  if (answer !== botAnswer) {
+    submitStatus.textContent = "Bot check answer is incorrect.";
+    return;
+  }
+
+  submitButton.disabled = true;
+  submitStatus.textContent = "Saving result to server...";
+
+  const response = await fetch("/api/results", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contributor: name,
+      bot_field: companyName.value,
+      form_elapsed_ms: Date.now() - formRenderedAt,
+      result: currentResult,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+    submitStatus.textContent = `Save failed: ${error.error}`;
+    submitButton.disabled = false;
+    return;
+  }
+
+  submitStatus.textContent = "Saved to espmark server.";
+  setupBotCheck();
+  botCheck.value = "";
+  await renderResultsTable();
+}
+
+async function renderResultsTable() {
+  resultsTable.innerHTML = `<tr><td colspan="9">Loading results...</td></tr>`;
+
+  try {
+    const rows = await fetchResults();
+
+    resultsTable.innerHTML = "";
+    if (rows.length === 0) {
+      resultsTable.innerHTML = `<tr><td colspan="9">No submitted results yet.</td></tr>`;
+      return;
+    }
+
+    for (const rowResult of rows) {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${rowResult.contributor}</td>
+        <td>${rowResult.result.board.name}</td>
+        <td>${rowResult.result.board.soc} r${rowResult.result.board.revision}</td>
+        <td>${rowResult.result.config.cpu_freq_mhz} MHz</td>
+        <td>${metricValue(rowResult.result, "cpu.integer.add_mul.u32")}</td>
+        <td>${metricValue(rowResult.result, "cpu.integer.div_mod.u32")}</td>
+        <td>${metricValue(rowResult.result, "cpu.integer.branch.u32")}</td>
+        <td>${metricValue(rowResult.result, "cpu.integer.crc_like.u32")}</td>
+        <td>${new Date(rowResult.submitted_at).toLocaleString()}</td>
+      `;
+      resultsTable.appendChild(row);
+    }
+  } catch (error) {
+    resultsTable.innerHTML = `<tr><td colspan="9">Could not load results: ${error.message}</td></tr>`;
   }
 }
+
+themeButton.addEventListener("click", nextTheme);
 
 connectButton.addEventListener("click", () => {
   connectSerial().catch((error) => {
     resultState.textContent = "Connection failed";
-    appendLog(`[web] Connection failed: ${error.message}\n`);
+    appendSystemLog(`Connection failed: ${error.message}`);
   });
 });
 
@@ -240,6 +321,7 @@ runButton.addEventListener("click", () => {
   currentResult = undefined;
   submitButton.disabled = true;
   resultState.textContent = "Benchmark running";
+  submitStatus.textContent = "A completed benchmark result is required.";
   resultSummary.classList.add("empty");
   resultSummary.textContent = "Waiting for benchmark output from the board.";
   sendSerial("\n");
@@ -250,25 +332,19 @@ jsonButton.addEventListener("click", () => {
 });
 
 submitButton.addEventListener("click", () => {
-  if (!currentResult) {
-    return;
-  }
-
-  const rows = loadSavedResults();
-  rows.unshift({ ...currentResult, saved_at: new Date().toISOString() });
-  saveResults(rows.slice(0, 50));
-  renderResultsTable();
-  resultState.textContent = "Saved locally";
+  submitResult().catch((error) => {
+    submitStatus.textContent = `Save failed: ${error.message}`;
+    submitButton.disabled = false;
+  });
 });
 
 clearLogButton.addEventListener("click", () => {
   serialLog.textContent = "";
 });
 
-clearResultsButton.addEventListener("click", () => {
-  localStorage.removeItem(storageKey);
-  renderResultsTable();
-});
+refreshResultsButton.addEventListener("click", renderResultsTable);
 
-setBrowserStatus();
+initTheme();
+setupBotCheck();
+setSerialSupport();
 renderResultsTable();
