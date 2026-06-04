@@ -8,8 +8,7 @@ Result submissions should include:
 
 - board name, vendor, module and revision
 - SoC target
-- ESP-IDF version
+- Arduino IDE version and installed `esp32` board package version
 - CPU frequency
 - flash size and mode when known
 - raw UART log or JSON bundle
-

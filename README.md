@@ -1,34 +1,32 @@
 # espmark
 
-Community benchmark firmware for ESP32-family boards.
+Community benchmark sketch for ESP32-family boards.
 
 The first public milestone focuses on CPU measurements that are easy to run on
-many boards without extra fixtures. The firmware prints a JSON result bundle to
-UART between `ESPMARK_RESULT_BEGIN` and `ESPMARK_RESULT_END` markers.
+many boards without extra fixtures. Users compile the Arduino sketch for their
+own board, upload it, and copy the JSON result printed to Serial Monitor between
+`ESPMARK_RESULT_BEGIN` and `ESPMARK_RESULT_END` markers.
 
 ## Current status
 
-- ESP-IDF project skeleton
+- Arduino IDE starter sketch
 - Initial CPU integer microbenchmarks
 - Board and SoC manifests
 - JSON result schema draft
 - Host helper for collecting UART output
 
-The default configuration is prepared for Seeed Studio XIAO ESP32C6
-(`esp32c6` target).
+The supported path is Arduino IDE. Users select their own ESP32 board, compile,
+upload, and submit the generated JSON result.
 
-## Build and flash
+## Arduino IDE quick start
 
-Install ESP-IDF, then from this repository:
+1. Open `arduino/espmark/espmark.ino` in Arduino IDE.
+2. Select your ESP32 board. For the first test board use `XIAO_ESP32C6`.
+3. Upload.
+4. Open Serial Monitor at `115200` baud.
+5. Copy the JSON between `ESPMARK_RESULT_BEGIN` and `ESPMARK_RESULT_END`.
 
-```bash
-idf.py set-target esp32c6
-idf.py build
-idf.py -p /dev/ttyACM0 flash monitor
-```
-
-Use the correct serial port for your machine. The XIAO ESP32C6 usually exposes
-native USB serial/JTAG, but the actual device path depends on the host.
+No ESP-IDF or Docker setup is required for normal users.
 
 ## Collect one result
 
@@ -42,12 +40,12 @@ community result registry.
 ## Project layout
 
 ```text
-main/                 ESP-IDF firmware
+arduino/              Arduino IDE starter sketch
 assets/               Project logos and static assets
 boards/               Board manifests
+harness/              Host-side collection tooling
 soc_caps/             SoC capability manifests
 schemas/              JSON schemas for manifests and result bundles
-harness/              Host-side collection tooling
 espmark.md            Long-form project notes and roadmap
 ```
 
