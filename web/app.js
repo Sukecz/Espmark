@@ -161,7 +161,7 @@ async function connectSerial() {
   runButton.disabled = false;
   jsonButton.disabled = false;
   resultState.textContent = "Connected";
-  appendLog("[web] Connected. If the board is waiting, click Run Benchmark.\n");
+  appendLog("[web] Connected. If the board asks for Enter, click Start benchmark.\n");
   readLoop();
 }
 
@@ -242,4 +242,3 @@ clearResultsButton.addEventListener("click", () => {
 
 setBrowserStatus();
 renderResultsTable();
-

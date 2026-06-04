@@ -35,7 +35,7 @@
 
           <div class="action-grid">
             <button id="connectButton" type="button">Connect USB</button>
-            <button id="runButton" type="button" disabled>Run Benchmark</button>
+            <button id="runButton" type="button" disabled>Start benchmark</button>
             <button id="jsonButton" type="button" disabled>Request JSON</button>
             <button id="submitButton" type="button" disabled>Save Result</button>
           </div>
@@ -52,6 +52,10 @@
             <h2>Live Serial</h2>
             <button class="ghost" id="clearLogButton" type="button">Clear</button>
           </div>
+          <p class="hint">
+            When the board asks for Enter, click <strong>Start benchmark</strong>.
+            The web page sends the command over USB serial.
+          </p>
           <pre id="serialLog" class="serial-log">Connect an ESP32 board to begin.</pre>
         </div>
 
@@ -103,4 +107,3 @@
     <script src="app.js" type="module"></script>
   </body>
 </html>
-

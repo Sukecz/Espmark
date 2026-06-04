@@ -208,6 +208,13 @@ button.ghost {
   font-size: 14px;
 }
 
+.hint {
+  margin: -4px 0 12px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 .serial-log {
   min-height: 360px;
   max-height: 520px;
@@ -315,4 +322,3 @@ th {
     font-size: 34px;
   }
 }
-
