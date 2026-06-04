@@ -1,0 +1,30 @@
+schema_version: 0.1.0
+soc: esp32c6
+arch: riscv
+cores:
+  hp: 1
+  lp: 1
+capabilities:
+  wifi_2g: true
+  wifi_5g: false
+  wifi_6: true
+  ble: true
+  bluetooth_classic: false
+  ieee802154: true
+  usb_serial_jtag: true
+  usb_otg: false
+  twai: true
+  fpu: false
+  simd: false
+  psram_optional: false
+required_lanes:
+  - cpu
+  - memory
+  - flash
+  - rtos
+optional_lanes:
+  - wifi
+  - ble
+  - ieee802154
+  - power
+

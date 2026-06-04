@@ -1,0 +1,11 @@
+idf_component_register(
+    SRCS
+        "espmark_cpu.c"
+        "espmark_metadata.c"
+        "main.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        esp_timer
+        spi_flash
+)

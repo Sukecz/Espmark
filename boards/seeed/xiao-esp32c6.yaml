@@ -1,0 +1,16 @@
+schema_version: 0.1.0
+vendor: Seeed Studio
+name: XIAO ESP32C6
+soc: esp32c6
+module: ESP32-C6
+default_target: esp32c6
+usb:
+  native_serial_jtag: true
+flash:
+  size_mb: null
+psram:
+  present: false
+notes:
+  - Default starter board for espmark development.
+  - Fill exact flash size and board revision from the tested hardware.
+

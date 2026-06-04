@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://espmark.dev/schemas/board-manifest.schema.json",
+  "title": "espmark board manifest",
+  "type": "object",
+  "required": ["schema_version", "vendor", "name", "soc", "default_target"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "vendor": {"type": "string"},
+    "name": {"type": "string"},
+    "soc": {"type": "string"},
+    "module": {"type": "string"},
+    "default_target": {"type": "string"},
+    "usb": {"type": "object"},
+    "flash": {"type": "object"},
+    "psram": {"type": "object"},
+    "notes": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "additionalProperties": true
+}
+
