@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>espmark</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <img class="logo" src="assets/espmarklogo_big.png" alt="espmark">
+        <div class="status-pill" id="browserStatus">Checking browser</div>
+      </header>
+
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Community ESP32 benchmark</p>
+          <h1>Flash, run, and collect ESP32 benchmark results from one page.</h1>
+          <p class="lede">
+            This local test page reads espmark output over USB serial and stores
+            submitted results in your browser. Firmware flashing and server-side
+            submissions are the next roadmap steps.
+          </p>
+        </div>
+        <div class="hero-panel">
+          <label for="boardSelect">Target board</label>
+          <select id="boardSelect">
+            <option value="XIAO_ESP32C6">Seeed Studio XIAO ESP32C6</option>
+            <option value="ESP32C6_DEV">ESP32C6 Dev Module</option>
+            <option value="ESP32S3_DEV">ESP32S3 Dev Module</option>
+            <option value="ESP32C3_DEV">ESP32C3 Dev Module</option>
+            <option value="ESP32_DEV">ESP32 Dev Module</option>
+          </select>
+
+          <div class="action-grid">
+            <button id="connectButton" type="button">Connect USB</button>
+            <button id="runButton" type="button" disabled>Run Benchmark</button>
+            <button id="jsonButton" type="button" disabled>Request JSON</button>
+            <button id="submitButton" type="button" disabled>Save Result</button>
+          </div>
+
+          <button class="secondary" id="flashButton" type="button" disabled>
+            Web flash pending firmware builds
+          </button>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <div class="panel">
+          <div class="panel-title">
+            <h2>Live Serial</h2>
+            <button class="ghost" id="clearLogButton" type="button">Clear</button>
+          </div>
+          <pre id="serialLog" class="serial-log">Connect an ESP32 board to begin.</pre>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">
+            <h2>Current Result</h2>
+            <span id="resultState">No result yet</span>
+          </div>
+          <div id="resultSummary" class="summary empty">
+            Run the benchmark, then request JSON from the board.
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          <h2>Local Result Table</h2>
+          <button class="ghost" id="clearResultsButton" type="button">Clear table</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Board</th>
+                <th>Chip</th>
+                <th>CPU</th>
+                <th>add/mul</th>
+                <th>div/mod</th>
+                <th>branch</th>
+                <th>crc-like</th>
+                <th>Saved</th>
+              </tr>
+            </thead>
+            <tbody id="resultsTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="roadmap">
+        <h2>Roadmap</h2>
+        <ol>
+          <li><strong>Now:</strong> USB serial result capture and local result table.</li>
+          <li><strong>Next:</strong> prebuilt firmware binaries and web flashing.</li>
+          <li><strong>Then:</strong> backend API, public submissions, moderation, compare view.</li>
+        </ol>
+      </section>
+    </main>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>
+
