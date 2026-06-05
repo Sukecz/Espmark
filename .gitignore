@@ -13,6 +13,10 @@ arduino/espmark/build/
 *.log
 .env
 .env.*
+web/firmware/*.bin
 
 # Local planning notes that are not part of the public release
+AGENTS.md
+docs/
 espmark-license-brand-setup.md
+scripts/deploy_web.sh

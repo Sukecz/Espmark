@@ -64,12 +64,11 @@ dependent measurements are not part of the headline Espmark score.
 ```text
 arduino/espmark/espmark.ino      benchmark firmware source
 web/                             web UI and lightweight backend
-web/firmware/                    public web-flasher firmware binaries
+web/firmware/manifest.json       web flasher manifest for official builds
 web/scoring/                     versioned scoring registry
 web/boards.json                  generated board catalog
 tests/                           backend scoring tests
-scripts/                         build, catalog, and deployment helpers
-docs/                            release notes
+scripts/                         build and catalog helpers
 ```
 
 ## Manufacturer Names
