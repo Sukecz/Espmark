@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="web/assets/espmarklogo_light.png" alt="Espmark" width="360">
+  <img src="web/assets/espmarklogo_readme.png" alt="Espmark" width="520">
 </p>
 
 # Espmark
