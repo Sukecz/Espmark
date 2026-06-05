@@ -3,92 +3,184 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>espmark</title>
-    <link rel="stylesheet" href="styles.css">
+    <meta name="color-scheme" content="light dark">
+    <title>Espmark</title>
+    <link rel="icon" type="image/png" href="assets/favicon.png?v=202606050940">
+    <link rel="stylesheet" href="styles.css?v=202606051830">
+    <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
   </head>
   <body>
     <main class="shell">
-      <header class="topbar">
-        <img class="logo" src="assets/espmarklogo_big.png" alt="espmark">
-        <button id="themeButton" class="theme-button" type="button" aria-label="Toggle theme">Auto</button>
+      <header class="masthead">
+        <a class="brand" href="/" aria-label="Espmark home">
+          <img class="brand-logo brand-logo-light" src="assets/espmarklogo_light.png?v=202606042350" alt="Espmark">
+          <img class="brand-logo brand-logo-dark" src="assets/espmarklogo_dark.png?v=202606042350" alt="Espmark">
+        </a>
+        <nav class="top-nav" aria-label="Main navigation">
+          <a href="#about">About</a>
+          <a href="#benchmark">Benchmark</a>
+          <button class="nav-button" id="openReportDialog" type="button">Bug report</button>
+          <a href="results.html">Results</a>
+        </nav>
+        <div class="theme-switch" role="group" aria-label="Theme">
+          <button class="theme-choice" type="button" data-theme-choice="auto">Auto</button>
+          <button class="theme-choice" type="button" data-theme-choice="light">Light</button>
+          <button class="theme-choice" type="button" data-theme-choice="dark">Dark</button>
+        </div>
       </header>
 
       <section class="hero">
-        <p class="eyebrow">Community ESP32 benchmark</p>
-        <h1>Run an ESP32 benchmark over USB.</h1>
-        <p class="lede">
-          Connect a board, start the benchmark, review the result, then submit it
-          to the espmark table. No Wi-Fi credentials are needed.
-        </p>
+        <div class="hero-copy">
+          <h1 class="home-title">The quick performance score for ESP boards.</h1>
+          <p class="lede">
+            Flash, run, score and compare your ESP8266 or ESP32-family board in a clean
+            leaderboard built for real maker projects.
+          </p>
+        </div>
+      </section>
+
+      <section class="info-grid" id="about">
+        <section class="panel">
+          <div class="panel-heading">
+            <h2>About Espmark</h2>
+            <p>Espmark is a browser-friendly benchmark for ESP boards. It turns a short firmware run into one readable score plus CPU, memory, flash and practical IoT breakdowns.</p>
+          </div>
+          <p class="body-copy">The goal is simple: help ESP builders compare boards before choosing one for sensors, displays, gateways, automation and other everyday embedded projects.</p>
+        </section>
+
+        <section class="panel" id="benchmark">
+          <div class="panel-heading">
+            <h2>Benchmark</h2>
+            <p>The test mixes integer and float compute, RAM and heap work, flash reads, JSON, strings, CRC32 and SHA-256. The server normalizes the raw timings into scores where higher is easier to compare.</p>
+          </div>
+          <p class="body-copy">Raw timings are still shown for people who want the details, but the headline score is what you use for quick board-to-board comparison.</p>
+        </section>
+      </section>
+
+      <section class="workflow" aria-label="Benchmark workflow">
+        <div class="step is-active">
+          <span>1</span>
+          <strong>Flash firmware</strong>
+          <p>Connect over USB and flash the matching generic Espmark firmware in the browser.</p>
+        </div>
+        <div class="step">
+          <span>2</span>
+          <strong>Connect USB</strong>
+          <p>Pick the serial port and keep the board attached after it reboots.</p>
+        </div>
+        <div class="step">
+          <span>3</span>
+          <strong>Run benchmark</strong>
+          <p>Start the benchmark and wait until the board prints a complete result.</p>
+        </div>
+        <div class="step">
+          <span>4</span>
+          <strong>Submit result</strong>
+          <p>Choose the exact board, pass the check and publish to the leaderboard.</p>
+        </div>
+      </section>
+
+      <section class="panel controls-panel">
+        <div class="flash-installer">
+          <div class="panel-heading">
+            <h2>Firmware Flash</h2>
+            <p>The installer detects the ESP chip family and flashes the matching generic Espmark build.</p>
+          </div>
+
+          <esp-web-install-button manifest="firmware/manifest.json">
+            <button class="primary-action" slot="activate" type="button">Flash Espmark</button>
+            <span slot="unsupported">Use Chrome or Edge over HTTPS to flash from the browser.</span>
+            <span slot="not-allowed">Open this page over HTTPS to enable browser flashing.</span>
+          </esp-web-install-button>
+        </div>
+
+        <div>
+          <div class="panel-heading">
+            <h2>Benchmark Control</h2>
+            <p>Connect the board, start the run and let the page capture the result automatically.</p>
+          </div>
+
+          <div class="inline-status" aria-label="Benchmark status">
+            <span>Connection: <strong id="connectionState">Not connected</strong></span>
+            <span>Result: <strong id="resultState">Waiting</strong></span>
+          </div>
+          <p class="support-note">After flashing, reconnect the serial port if the board rebooted.</p>
+        </div>
+
+        <div class="control-actions" aria-label="Benchmark actions">
+          <button id="connectButton" class="primary-action" type="button">Connect board</button>
+          <button id="runButton" class="secondary-action" type="button" disabled>Run benchmark</button>
+          <button id="jsonButton" class="secondary-action" type="button" disabled>Read result again</button>
+          <button class="ghost-action" id="clearLogButton" type="button">Clear serial log</button>
+        </div>
+
+        <p id="connectionHint" class="support-note">Chrome or Edge over HTTPS is required for USB serial access.</p>
       </section>
 
       <section class="bench-grid">
-        <aside class="panel controls-panel">
-          <h2>Control</h2>
-
-          <label for="boardSelect">Target board</label>
-          <select id="boardSelect">
-            <option value="XIAO_ESP32C6">Seeed Studio XIAO ESP32C6</option>
-            <option value="ESP32C6_DEV">ESP32C6 Dev Module</option>
-            <option value="ESP32S3_DEV">ESP32S3 Dev Module</option>
-            <option value="ESP32C3_DEV">ESP32C3 Dev Module</option>
-            <option value="ESP32_DEV">ESP32 Dev Module</option>
-          </select>
-
-          <div class="button-stack">
-            <button id="connectButton" type="button">Connect USB</button>
-            <button id="runButton" type="button" disabled>Start benchmark</button>
-            <button id="jsonButton" class="secondary" type="button" disabled>Read result JSON</button>
-          </div>
-
-          <p id="connectionHint" class="hint">
-            Use Chrome or Edge. Web Serial requires HTTPS.
-          </p>
-        </aside>
-
         <section class="panel serial-panel">
           <div class="panel-title">
-            <h2>Live Serial</h2>
-            <button class="ghost" id="clearLogButton" type="button">Clear</button>
+            <div>
+              <h2>Live Serial</h2>
+              <p>Progress and readable benchmark output from the board.</p>
+            </div>
           </div>
-          <pre id="serialLog" class="serial-log">Connect an ESP32 board to begin.</pre>
+          <pre id="serialLog" class="serial-log">Connect an ESP board to begin.</pre>
         </section>
       </section>
 
       <section class="result-grid">
         <section class="panel">
-          <div class="panel-title">
-            <h2>Current Result</h2>
-            <span id="resultState">No result yet</span>
+          <div class="panel-heading">
+            <h2>Captured Result</h2>
+            <p>Your latest run appears here with the same server-side scoring used for public submissions.</p>
           </div>
           <div id="resultSummary" class="summary empty">
-            Start the benchmark. The web page will read the result automatically.
+            Run the benchmark to capture board metadata, firmware details and the full Espmark metric set.
           </div>
         </section>
 
-        <section class="panel">
-          <h2>Submit Result</h2>
-          <label for="contributorName">Name</label>
-          <input id="contributorName" autocomplete="name" maxlength="80" placeholder="Your name or nickname">
+        <section class="panel submit-panel">
+          <div class="panel-heading">
+            <h2>Publish Result</h2>
+            <p>One clean submission per finished run. Official scores are computed and stored by the server.</p>
+          </div>
+
+          <label for="contributorName">Name or nickname</label>
+          <input id="contributorName" autocomplete="name" maxlength="80" placeholder="Example: Martin S.">
+
+          <label for="exactBoard">Exact board</label>
+          <input id="exactBoard" list="boardSuggestions" autocomplete="off" disabled placeholder="Run a benchmark first">
+          <datalist id="boardSuggestions"></datalist>
+          <label class="inline-choice" for="customBoardToggle">
+            <input id="customBoardToggle" type="checkbox" disabled>
+            <span>Not in list</span>
+          </label>
 
           <label class="bot-field" for="companyName">Company</label>
           <input id="companyName" class="bot-field" tabindex="-1" autocomplete="off">
 
           <label for="botCheck">Bot check</label>
           <div class="bot-check">
-            <span id="botQuestion">Loading...</span>
+            <span id="botQuestion">Loading check...</span>
             <input id="botCheck" inputmode="numeric" autocomplete="off" placeholder="Answer">
           </div>
 
-          <button id="submitButton" type="button" disabled>Save result</button>
-          <p id="submitStatus" class="hint">A completed benchmark result is required.</p>
+          <button id="submitButton" class="primary-action" type="button" disabled>Publish result</button>
+          <p id="submitStatus" class="support-note">A completed benchmark result is required.</p>
         </section>
       </section>
 
-      <section class="panel">
+      <section class="panel results-panel">
         <div class="panel-title">
-          <h2>Result Table</h2>
-          <button class="ghost" id="refreshResultsButton" type="button">Refresh</button>
+          <div>
+            <h2>Latest Results</h2>
+            <p>The 10 newest community submissions.</p>
+          </div>
+          <div class="panel-actions">
+            <button class="ghost-action compact" id="refreshResultsButton" type="button">Refresh</button>
+            <a class="secondary-link compact" href="results.html">More results</a>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
@@ -97,11 +189,13 @@
                 <th>Name</th>
                 <th>Board</th>
                 <th>Chip</th>
-                <th>CPU</th>
-                <th>add/mul</th>
-                <th>div/mod</th>
-                <th>branch</th>
-                <th>crc-like</th>
+                <th>Espmark score</th>
+                <th>CPU score</th>
+                <th>Memory score</th>
+                <th>Flash score</th>
+                <th>Practical IoT</th>
+                <th>CPU clock</th>
+                <th>Firmware</th>
                 <th>Submitted</th>
               </tr>
             </thead>
@@ -109,17 +203,33 @@
           </table>
         </div>
       </section>
-
-      <section class="roadmap">
-        <h2>Roadmap</h2>
-        <ol>
-          <li><strong>Now:</strong> USB serial capture and server-side result table.</li>
-          <li><strong>Next:</strong> prebuilt firmware binaries and web flashing.</li>
-          <li><strong>Then:</strong> moderation, compare view, more boards and tests.</li>
-        </ol>
-      </section>
     </main>
 
-    <script src="app.js" type="module"></script>
+    <dialog class="report-dialog" id="reportDialog" aria-labelledby="reportDialogTitle">
+      <form class="report-modal" method="dialog">
+        <div class="panel-title">
+          <div>
+            <h2 id="reportDialogTitle">Bug Report</h2>
+            <p>Send a short note if a board does not flash, a result looks wrong, or the page behaves strangely.</p>
+          </div>
+          <button class="ghost-action compact" id="closeReportDialog" type="button" aria-label="Close bug report">Close</button>
+        </div>
+        <label for="reportContact">Contact or nickname</label>
+        <input id="reportContact" maxlength="120" placeholder="Optional">
+        <label for="reportMessage">Message</label>
+        <textarea id="reportMessage" maxlength="3000" rows="5" placeholder="Board, browser, what happened, and what you expected."></textarea>
+        <label class="bot-field" for="reportCompany">Company</label>
+        <input id="reportCompany" class="bot-field" tabindex="-1" autocomplete="off">
+        <label for="reportBotCheck">Bot check</label>
+        <div class="bot-check">
+          <span id="reportBotQuestion">Loading check...</span>
+          <input id="reportBotCheck" inputmode="numeric" autocomplete="off" placeholder="Answer">
+        </div>
+        <button id="reportButton" class="primary-action" type="button">Send report</button>
+        <p id="reportStatus" class="support-note">Reports are saved on the Espmark server.</p>
+      </form>
+    </dialog>
+
+    <script src="app.js?v=202606051830" type="module"></script>
   </body>
 </html>

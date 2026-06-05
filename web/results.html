@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>Espmark results</title>
+    <link rel="icon" type="image/png" href="assets/favicon.png?v=202606050940">
+    <link rel="stylesheet" href="styles.css?v=202606051830">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="masthead">
+        <a class="brand" href="/" aria-label="Espmark home">
+          <img class="brand-logo brand-logo-light" src="assets/espmarklogo_light.png?v=202606042350" alt="Espmark">
+          <img class="brand-logo brand-logo-dark" src="assets/espmarklogo_dark.png?v=202606042350" alt="Espmark">
+        </a>
+        <nav class="top-nav" aria-label="Main navigation">
+          <a href="index.html#about">About</a>
+          <a href="index.html#benchmark">Benchmark</a>
+          <button class="nav-button" id="openReportDialog" type="button">Bug report</button>
+          <a href="results.html" aria-current="page">Results</a>
+        </nav>
+        <div class="theme-switch" role="group" aria-label="Theme">
+          <button class="theme-choice" type="button" data-theme-choice="auto">Auto</button>
+          <button class="theme-choice" type="button" data-theme-choice="light">Light</button>
+          <button class="theme-choice" type="button" data-theme-choice="dark">Dark</button>
+        </div>
+      </header>
+
+      <section class="hero compact-hero">
+        <div class="hero-copy">
+          <p class="hero-kicker">Results</p>
+          <h1>Compare ESP boards by real Espmark scores.</h1>
+          <p class="lede">Sort the leaderboard by headline score or by CPU, memory, flash and practical IoT categories.</p>
+        </div>
+      </section>
+
+      <section class="panel results-panel full-results">
+        <div class="panel-title">
+          <div>
+            <h2>Leaderboard</h2>
+            <p>Click a score column to sort. Click a row to open the detailed benchmark breakdown.</p>
+          </div>
+          <button class="ghost-action compact" id="refreshResultsButton" type="button">Refresh</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Board</th>
+                <th>Chip</th>
+                <th><button class="sort-button" type="button" data-sort-key="espmark_core_score">Espmark score</button></th>
+                <th><button class="sort-button" type="button" data-sort-key="cpu_score">CPU score</button></th>
+                <th><button class="sort-button" type="button" data-sort-key="memory_score">Memory score</button></th>
+                <th><button class="sort-button" type="button" data-sort-key="flash_score">Flash score</button></th>
+                <th><button class="sort-button" type="button" data-sort-key="practical_iot_score">Practical IoT</button></th>
+                <th>CPU clock</th>
+                <th>Firmware</th>
+                <th>Submitted</th>
+              </tr>
+            </thead>
+            <tbody id="resultsTable" data-results-limit="all"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <dialog class="report-dialog" id="reportDialog" aria-labelledby="reportDialogTitle">
+      <form class="report-modal" method="dialog">
+        <div class="panel-title">
+          <div>
+            <h2 id="reportDialogTitle">Bug Report</h2>
+            <p>Send a short note if a board does not flash, a result looks wrong, or the page behaves strangely.</p>
+          </div>
+          <button class="ghost-action compact" id="closeReportDialog" type="button" aria-label="Close bug report">Close</button>
+        </div>
+        <label for="reportContact">Contact or nickname</label>
+        <input id="reportContact" maxlength="120" placeholder="Optional">
+        <label for="reportMessage">Message</label>
+        <textarea id="reportMessage" maxlength="3000" rows="5" placeholder="Board, browser, what happened, and what you expected."></textarea>
+        <label class="bot-field" for="reportCompany">Company</label>
+        <input id="reportCompany" class="bot-field" tabindex="-1" autocomplete="off">
+        <label for="reportBotCheck">Bot check</label>
+        <div class="bot-check">
+          <span id="reportBotQuestion">Loading check...</span>
+          <input id="reportBotCheck" inputmode="numeric" autocomplete="off" placeholder="Answer">
+        </div>
+        <button id="reportButton" class="primary-action" type="button">Send report</button>
+        <p id="reportStatus" class="support-note">Reports are saved on the Espmark server.</p>
+      </form>
+    </dialog>
+
+    <script src="app.js?v=202606051830" type="module"></script>
+  </body>
+</html>

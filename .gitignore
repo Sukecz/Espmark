@@ -2,3 +2,5 @@ results/
 .theia/
 *.pyc
 __pycache__/
+*.uid-*
+arduino/espmark/build/
