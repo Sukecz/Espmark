@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="web/assets/espmarklogo_light.png" alt="Espmark" width="360">
+</p>
+
 # Espmark
 
 Espmark is a browser-driven benchmark for ESP8266 and ESP32-family boards. It

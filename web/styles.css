@@ -1007,12 +1007,26 @@ tbody tr:hover {
 
 .site-footer {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
   justify-content: center;
+  align-items: center;
   margin-top: 24px;
   padding: 18px 0 0;
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 14px;
+  text-align: center;
+}
+
+.site-footer a {
+  color: inherit;
+  text-decoration-color: color-mix(in srgb, currentColor 42%, transparent);
+  text-underline-offset: 3px;
+}
+
+.site-footer a:hover {
+  color: var(--text);
 }
 
 .report-dialog {
