@@ -9,24 +9,28 @@
 #include <math.h>
 
 #define ESPMARK_SCHEMA_VERSION "1.0.0-beta"
-#define ESPMARK_VERSION "0.2.1"
+#define ESPMARK_VERSION "0.2.3"
 #define ESPMARK_FIRMWARE_VERSION ESPMARK_VERSION "-arduino"
-#define ESPMARK_BENCHMARK_PROFILE "espmark-core-preview"
-#define ESPMARK_TEST_SET_ID "espmark-core-preview-1"
+#define ESPMARK_BENCHMARK_PROFILE "espmark-core-stress-preview"
+#define ESPMARK_TEST_SET_ID "espmark-core-stress-preview-1"
 #define ESPMARK_MODE "full"
-#define ESPMARK_CPU_REPEAT 20
-#define ESPMARK_CPU_INNER_ITERATIONS 25000UL
-#define ESPMARK_COMPUTE_INNER_ITERATIONS 700UL
-#define ESPMARK_MATRIX_INNER_ITERATIONS 420UL
-#define ESPMARK_SUSTAINED_INNER_ITERATIONS 32000UL
+#define ESPMARK_CPU_REPEAT 12
+#define ESPMARK_CPU_INNER_ITERATIONS 250000UL
+#define ESPMARK_COMPUTE_INNER_ITERATIONS 7000UL
+#define ESPMARK_MATRIX_INNER_ITERATIONS 4200UL
+#define ESPMARK_SUSTAINED_INNER_ITERATIONS 320000UL
 #define ESPMARK_FLASH_REPEAT 12
 #define ESPMARK_PRACTICAL_REPEAT 12
-#define ESPMARK_PRACTICAL_INNER_ITERATIONS 120UL
-#define ESPMARK_MEM_REPEAT 20
-#define ESPMARK_MEM_INNER_ITERATIONS 128UL
-#define ESPMARK_MEM_MAX_BLOCK_BYTES 8192UL
+#define ESPMARK_PRACTICAL_INNER_ITERATIONS 1200UL
+#define ESPMARK_MEM_REPEAT 12
+#define ESPMARK_MEM_INNER_ITERATIONS 1024UL
+#define ESPMARK_MEM_MAX_BLOCK_BYTES 16384UL
 #define ESPMARK_MEM_ALLOCATIONS 64
 #define ESPMARK_MEM_ALLOCATION_BYTES 128
+#define ESPMARK_MEM_ALLOC_ROUNDS 12
+#define ESPMARK_MEM_FRAGMENT_ROUNDS 24
+#define ESPMARK_FLASH_READ_PASSES 128UL
+#define ESPMARK_SAMPLE_SETTLE_MS 20
 #define ESPMARK_BOARD_VENDOR "Generic"
 
 #if defined(ARDUINO_ARCH_ESP8266)
@@ -69,6 +73,8 @@ struct Metric {
   double max;
   double stdev;
   double p95;
+  uint32_t workUnits;
+  uint32_t checksum;
 };
 
 typedef uint32_t (*KernelFn)(uint32_t iterations, uint32_t seed);
@@ -127,7 +133,12 @@ static void sortU64(uint64_t *values, size_t count) {
   }
 }
 
-static Metric summarizeUs(const char *id, const char *category, uint64_t *samples, uint32_t count) {
+static void settleBeforeSamples() {
+  delay(ESPMARK_SAMPLE_SETTLE_MS);
+  yield();
+}
+
+static Metric summarizeUs(const char *id, const char *category, uint64_t *samples, uint32_t count, uint32_t workUnits, uint32_t checksum) {
   uint64_t sorted[ESPMARK_CPU_REPEAT];
   memcpy(sorted, samples, sizeof(uint64_t) * count);
   sortU64(sorted, count);
@@ -158,6 +169,8 @@ static Metric summarizeUs(const char *id, const char *category, uint64_t *sample
     (double)sorted[count - 1],
     sqrt(variance),
     (double)sorted[p95Index],
+    workUnits,
+    checksum,
   };
   return metric;
 }
@@ -293,6 +306,7 @@ static Metric runKernel(const char *id, KernelFn kernel, uint32_t iterations = E
     guard ^= kernel(iterations, 0x12345678U + i);
   }
 
+  settleBeforeSamples();
   for (uint32_t i = 0; i < ESPMARK_CPU_REPEAT; ++i) {
     const uint64_t start = micros();
     guard ^= kernel(iterations, 0x9e3779b9U + i);
@@ -300,7 +314,7 @@ static Metric runKernel(const char *id, KernelFn kernel, uint32_t iterations = E
     samples[i] = end - start;
   }
 
-  return summarizeUs(id, "cpu", samples, ESPMARK_CPU_REPEAT);
+  return summarizeUs(id, "cpu", samples, ESPMARK_CPU_REPEAT, iterations, guard);
 }
 
 static size_t memoryBlockBytes() {
@@ -345,6 +359,7 @@ static Metric runMemoryKernel(const char *id, MemoryFn kernel, uint8_t *dst, uin
 
   kernel(dst, src, length, 3, guard);
 
+  settleBeforeSamples();
   for (uint32_t i = 0; i < ESPMARK_MEM_REPEAT; ++i) {
     const uint64_t start = micros();
     kernel(dst, src, length, ESPMARK_MEM_INNER_ITERATIONS, guard);
@@ -352,13 +367,14 @@ static Metric runMemoryKernel(const char *id, MemoryFn kernel, uint8_t *dst, uin
     samples[i] = end - start;
   }
 
-  return summarizeUs(id, "memory", samples, ESPMARK_MEM_REPEAT);
+  return summarizeUs(id, "memory", samples, ESPMARK_MEM_REPEAT, (uint32_t)(length * ESPMARK_MEM_INNER_ITERATIONS), guard);
 }
 
 static Metric runAllocationBenchmark() {
   uint64_t samples[ESPMARK_MEM_REPEAT];
   volatile uint32_t guard = 0;
 
+  settleBeforeSamples();
   for (uint32_t sample = 0; sample < ESPMARK_MEM_REPEAT; ++sample) {
     void *blocks[ESPMARK_MEM_ALLOCATIONS];
     for (uint32_t i = 0; i < ESPMARK_MEM_ALLOCATIONS; ++i) {
@@ -366,27 +382,38 @@ static Metric runAllocationBenchmark() {
     }
 
     const uint64_t start = micros();
-    for (uint32_t i = 0; i < ESPMARK_MEM_ALLOCATIONS; ++i) {
-      blocks[i] = malloc(ESPMARK_MEM_ALLOCATION_BYTES);
-      if (blocks[i]) {
-        memset(blocks[i], (int)i, ESPMARK_MEM_ALLOCATION_BYTES);
-        guard ^= ((uint8_t *)blocks[i])[i % ESPMARK_MEM_ALLOCATION_BYTES];
+    for (uint32_t round = 0; round < ESPMARK_MEM_ALLOC_ROUNDS; ++round) {
+      for (uint32_t i = 0; i < ESPMARK_MEM_ALLOCATIONS; ++i) {
+        blocks[i] = malloc(ESPMARK_MEM_ALLOCATION_BYTES);
+        if (blocks[i]) {
+          memset(blocks[i], (int)(i + round), ESPMARK_MEM_ALLOCATION_BYTES);
+          guard ^= ((uint8_t *)blocks[i])[(i + round) % ESPMARK_MEM_ALLOCATION_BYTES];
+        }
       }
-    }
-    for (int32_t i = ESPMARK_MEM_ALLOCATIONS - 1; i >= 0; --i) {
-      free(blocks[i]);
+      for (int32_t i = ESPMARK_MEM_ALLOCATIONS - 1; i >= 0; --i) {
+        free(blocks[i]);
+        blocks[i] = nullptr;
+      }
     }
     const uint64_t end = micros();
     samples[sample] = end - start;
   }
 
-  return summarizeUs("memory.heap.malloc_free.128b", "memory", samples, ESPMARK_MEM_REPEAT);
+  return summarizeUs(
+    "memory.heap.malloc_free.128b",
+    "memory",
+    samples,
+    ESPMARK_MEM_REPEAT,
+    ESPMARK_MEM_ALLOCATIONS * ESPMARK_MEM_ALLOC_ROUNDS,
+    guard
+  );
 }
 
 static Metric runHeapFragmentationBenchmark() {
   uint64_t samples[ESPMARK_MEM_REPEAT];
   volatile uint32_t guard = 0;
 
+  settleBeforeSamples();
   for (uint32_t sample = 0; sample < ESPMARK_MEM_REPEAT; ++sample) {
     void *blocks[32];
     for (uint32_t i = 0; i < 32; ++i) {
@@ -394,7 +421,7 @@ static Metric runHeapFragmentationBenchmark() {
     }
 
     const uint64_t start = micros();
-    for (uint32_t round = 0; round < 4; ++round) {
+    for (uint32_t round = 0; round < ESPMARK_MEM_FRAGMENT_ROUNDS; ++round) {
       for (uint32_t i = 0; i < 32; ++i) {
         const size_t size = 24U + ((i * 37U + round * 11U) % 160U);
         blocks[i] = malloc(size);
@@ -424,14 +451,44 @@ static Metric runHeapFragmentationBenchmark() {
     samples[sample] = end - start;
   }
 
-  return summarizeUs("memory.heap.fragmentation", "memory", samples, ESPMARK_MEM_REPEAT);
+  return summarizeUs("memory.heap.fragmentation", "memory", samples, ESPMARK_MEM_REPEAT, 32U * ESPMARK_MEM_FRAGMENT_ROUNDS, guard);
 }
 
+#define ESPMARK_FLASH_PATTERN_256 \
+  0x31, 0x7a, 0xc4, 0x10, 0x9d, 0x22, 0xf0, 0x61, 0x48, 0x83, 0xbd, 0x05, 0xd6, 0x19, 0xa2, 0x5f, \
+  0x6c, 0x90, 0x1e, 0xe7, 0x42, 0xb8, 0x73, 0x0d, 0xfa, 0x2c, 0x55, 0x99, 0x04, 0xce, 0x37, 0x68, \
+  0xab, 0x11, 0xdf, 0x24, 0x75, 0x8e, 0x03, 0xc9, 0x52, 0x6f, 0xb1, 0x0a, 0xe2, 0x3c, 0x87, 0x49, \
+  0x95, 0x20, 0xda, 0x64, 0x18, 0xf3, 0x7d, 0x06, 0xbe, 0x41, 0x8a, 0x2f, 0xd1, 0x59, 0x70, 0xac, \
+  0x4d, 0x86, 0x12, 0xef, 0x39, 0xa4, 0x7b, 0x01, 0xc8, 0x5e, 0x93, 0x2a, 0xf6, 0x40, 0xbd, 0x77, \
+  0x08, 0xd3, 0x6a, 0x9f, 0x25, 0xec, 0x51, 0xb7, 0x0e, 0x84, 0x3d, 0xf1, 0x69, 0xa8, 0x14, 0xcb, \
+  0x72, 0x0b, 0xd9, 0x46, 0x8f, 0x33, 0xfa, 0x5c, 0x91, 0x27, 0xbe, 0x60, 0x0a, 0xe5, 0x38, 0x94, \
+  0x1f, 0xc2, 0x7d, 0x56, 0xab, 0x04, 0xee, 0x89, 0x35, 0xd0, 0x6b, 0x17, 0xa1, 0x4c, 0xf8, 0x23, \
+  0x5a, 0xb6, 0x0d, 0xc7, 0x92, 0x3e, 0xe1, 0x68, 0x15, 0xaf, 0x44, 0xfb, 0x80, 0x29, 0xd5, 0x63, \
+  0x0f, 0xba, 0x71, 0x2c, 0xe8, 0x96, 0x41, 0xdd, 0x1a, 0x54, 0xc0, 0x8b, 0x37, 0xf2, 0x6e, 0x03, \
+  0xad, 0x49, 0x85, 0x20, 0xdc, 0x76, 0x11, 0xbf, 0x58, 0x02, 0xea, 0x9c, 0x34, 0xc9, 0x7f, 0x26, \
+  0xf4, 0x6a, 0x18, 0xa6, 0x4e, 0xd1, 0x90, 0x0c, 0xb8, 0x52, 0xed, 0x39, 0x84, 0x21, 0xcb, 0x67, \
+  0x13, 0xfe, 0x45, 0x9a, 0x2f, 0xd7, 0x70, 0x08, 0xbc, 0x5d, 0xe2, 0x36, 0x81, 0x19, 0xcf, 0x64, \
+  0x0b, 0xa7, 0x4a, 0xf5, 0x93, 0x2d, 0xd8, 0x51, 0x06, 0xbe, 0x79, 0x24, 0xe0, 0x8c, 0x32, 0xfa, \
+  0x5f, 0x10, 0xc4, 0x6b, 0x97, 0x28, 0xdd, 0x43, 0x0e, 0xb2, 0x75, 0xec, 0x39, 0x8a, 0x16, 0xc1, \
+  0x6d, 0x04, 0xf9, 0x50, 0xab, 0x27, 0xde, 0x83, 0x3c, 0x95, 0x1a, 0xe7, 0x62, 0x0f, 0xb9, 0x44
+
 static const uint8_t kFlashBlob[] PROGMEM = {
-  0x31, 0x7a, 0xc4, 0x10, 0x9d, 0x22, 0xf0, 0x61, 0x48, 0x83, 0xbd, 0x05, 0xd6, 0x19, 0xa2, 0x5f,
-  0x6c, 0x90, 0x1e, 0xe7, 0x42, 0xb8, 0x73, 0x0d, 0xfa, 0x2c, 0x55, 0x99, 0x04, 0xce, 0x37, 0x68,
-  0xab, 0x11, 0xdf, 0x24, 0x75, 0x8e, 0x03, 0xc9, 0x52, 0x6f, 0xb1, 0x0a, 0xe2, 0x3c, 0x87, 0x49,
-  0x95, 0x20, 0xda, 0x64, 0x18, 0xf3, 0x7d, 0x06, 0xbe, 0x41, 0x8a, 0x2f, 0xd1, 0x59, 0x70, 0xac,
+  ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256,
+  ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256,
+  ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256,
+  ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256,
+  ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256,
+  ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256,
+  ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256,
+  ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256,
+  ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256,
+  ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256,
+  ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256,
+  ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256,
+  ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256,
+  ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256,
+  ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256,
+  ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256, ESPMARK_FLASH_PATTERN_256,
 };
 
 static uint32_t crc32Update(uint32_t crc, uint8_t value) {
@@ -447,18 +504,19 @@ static Metric runFlashReadBenchmark() {
   uint64_t samples[ESPMARK_FLASH_REPEAT];
   volatile uint32_t guard = 0;
 
+  settleBeforeSamples();
   for (uint32_t sample = 0; sample < ESPMARK_FLASH_REPEAT; ++sample) {
     const uint64_t start = micros();
-    for (uint32_t iter = 0; iter < 1024; ++iter) {
+    for (uint32_t pass = 0; pass < ESPMARK_FLASH_READ_PASSES; ++pass) {
       for (size_t i = 0; i < sizeof(kFlashBlob); ++i) {
-        guard = (guard * 33U) ^ pgm_read_byte(&kFlashBlob[(i + iter) % sizeof(kFlashBlob)]);
+        guard = (guard * 33U) ^ pgm_read_byte(&kFlashBlob[i]);
       }
     }
     const uint64_t end = micros();
     samples[sample] = end - start;
   }
 
-  return summarizeUs("flash.read.seq", "flash", samples, ESPMARK_FLASH_REPEAT);
+  return summarizeUs("flash.read.seq", "flash", samples, ESPMARK_FLASH_REPEAT, (uint32_t)(sizeof(kFlashBlob) * ESPMARK_FLASH_READ_PASSES), guard);
 }
 
 static Metric runCrc32Benchmark() {
@@ -469,6 +527,7 @@ static Metric runCrc32Benchmark() {
   }
   volatile uint32_t guard = 0;
 
+  settleBeforeSamples();
   for (uint32_t sample = 0; sample < ESPMARK_PRACTICAL_REPEAT; ++sample) {
     uint32_t crc = 0xffffffffU;
     const uint64_t start = micros();
@@ -482,7 +541,7 @@ static Metric runCrc32Benchmark() {
     samples[sample] = end - start;
   }
 
-  return summarizeUs("practical.crc32.sw", "practical_iot", samples, ESPMARK_PRACTICAL_REPEAT);
+  return summarizeUs("practical.crc32.sw", "practical_iot", samples, ESPMARK_PRACTICAL_REPEAT, sizeof(buffer) * ESPMARK_PRACTICAL_INNER_ITERATIONS, guard);
 }
 
 struct Sha256Ctx {
@@ -593,9 +652,10 @@ static Metric runSha256Benchmark() {
     buffer[i] = (uint8_t)(i * 13U + 91U);
   }
 
+  settleBeforeSamples();
   for (uint32_t sample = 0; sample < ESPMARK_PRACTICAL_REPEAT; ++sample) {
     const uint64_t start = micros();
-    for (uint32_t iter = 0; iter < 32; ++iter) {
+    for (uint32_t iter = 0; iter < ESPMARK_PRACTICAL_INNER_ITERATIONS / 4U; ++iter) {
       Sha256Ctx ctx;
       sha256Init(&ctx);
       buffer[0] = (uint8_t)(sample + iter);
@@ -607,7 +667,7 @@ static Metric runSha256Benchmark() {
     samples[sample] = end - start;
   }
 
-  return summarizeUs("practical.sha256.sw", "practical_iot", samples, ESPMARK_PRACTICAL_REPEAT);
+  return summarizeUs("practical.sha256.sw", "practical_iot", samples, ESPMARK_PRACTICAL_REPEAT, sizeof(buffer) * (ESPMARK_PRACTICAL_INNER_ITERATIONS / 4U), guard);
 }
 
 static Metric runStringFormatBenchmark() {
@@ -615,6 +675,7 @@ static Metric runStringFormatBenchmark() {
   char line[96];
   volatile uint32_t guard = 0;
 
+  settleBeforeSamples();
   for (uint32_t sample = 0; sample < ESPMARK_PRACTICAL_REPEAT; ++sample) {
     const uint64_t start = micros();
     for (uint32_t iter = 0; iter < ESPMARK_PRACTICAL_INNER_ITERATIONS * 12U; ++iter) {
@@ -633,7 +694,7 @@ static Metric runStringFormatBenchmark() {
     samples[sample] = end - start;
   }
 
-  return summarizeUs("practical.string.format", "practical_iot", samples, ESPMARK_PRACTICAL_REPEAT);
+  return summarizeUs("practical.string.format", "practical_iot", samples, ESPMARK_PRACTICAL_REPEAT, ESPMARK_PRACTICAL_INNER_ITERATIONS * 12U, guard);
 }
 
 static Metric runJsonRoundtripBenchmark() {
@@ -641,6 +702,7 @@ static Metric runJsonRoundtripBenchmark() {
   char json[160];
   volatile uint32_t guard = 0;
 
+  settleBeforeSamples();
   for (uint32_t sample = 0; sample < ESPMARK_PRACTICAL_REPEAT; ++sample) {
     const uint64_t start = micros();
     for (uint32_t iter = 0; iter < ESPMARK_PRACTICAL_INNER_ITERATIONS * 8U; ++iter) {
@@ -668,7 +730,7 @@ static Metric runJsonRoundtripBenchmark() {
     samples[sample] = end - start;
   }
 
-  return summarizeUs("practical.json.roundtrip", "practical_iot", samples, ESPMARK_PRACTICAL_REPEAT);
+  return summarizeUs("practical.json.roundtrip", "practical_iot", samples, ESPMARK_PRACTICAL_REPEAT, ESPMARK_PRACTICAL_INNER_ITERATIONS * 8U, guard);
 }
 
 static void printJsonMetric(const Metric &metric, bool last) {
@@ -694,6 +756,13 @@ static void printJsonMetric(const Metric &metric, bool last) {
   Serial.print(metric.min, 3);
   Serial.print(",\"max\":");
   Serial.print(metric.max, 3);
+  Serial.print(",\"work_units\":");
+  Serial.print(metric.workUnits);
+  Serial.print(",\"checksum\":\"0x");
+  char checksum[9];
+  snprintf(checksum, sizeof(checksum), "%08lx", (unsigned long)metric.checksum);
+  Serial.print(checksum);
+  Serial.print("\"");
   Serial.print("}");
   Serial.println(last ? "" : ",");
 }
@@ -771,7 +840,19 @@ static void printJsonResult() {
   Serial.print(ESPMARK_MEM_ALLOCATION_BYTES);
   Serial.println(",");
   Serial.print("    \"memory_allocations\": ");
-  Serial.println(ESPMARK_MEM_ALLOCATIONS);
+  Serial.print(ESPMARK_MEM_ALLOCATIONS);
+  Serial.println(",");
+  Serial.print("    \"memory_alloc_rounds\": ");
+  Serial.print(ESPMARK_MEM_ALLOC_ROUNDS);
+  Serial.println(",");
+  Serial.print("    \"memory_fragment_rounds\": ");
+  Serial.print(ESPMARK_MEM_FRAGMENT_ROUNDS);
+  Serial.println(",");
+  Serial.print("    \"flash_read_passes\": ");
+  Serial.print(ESPMARK_FLASH_READ_PASSES);
+  Serial.println(",");
+  Serial.print("    \"practical_inner_iterations\": ");
+  Serial.println(ESPMARK_PRACTICAL_INNER_ITERATIONS);
   Serial.println("  },");
   Serial.println("  \"results\": [");
   for (uint32_t i = 0; i < gMetricCount; ++i) {
@@ -840,19 +921,53 @@ static const char *shortName(const char *id) {
   return id;
 }
 
-static uint32_t categoryScore(const char *category) {
+static double referenceUs(const char *id) {
+  if (strcmp(id, "flash.read.seq") == 0) return 128000.0;
+
+  if (strcmp(id, "practical.crc32.sw") == 0) return 35000.0;
+  if (strcmp(id, "practical.sha256.sw") == 0) return 70000.0;
+  if (strcmp(id, "practical.json.roundtrip") == 0) return 50000.0;
+  if (strcmp(id, "practical.string.format") == 0) return 25000.0;
+
+  if (strcmp(id, "cpu.integer.add_mul.u32") == 0) return 10000.0;
+  if (strcmp(id, "cpu.integer.div_mod.u32") == 0) return 30000.0;
+  if (strcmp(id, "cpu.integer.branch.u32") == 0) return 12000.0;
+  if (strcmp(id, "cpu.integer.crc_like.u32") == 0) return 45000.0;
+  if (strcmp(id, "cpu.sustained.mix") == 0) return 35000.0;
+  if (strcmp(id, "cpu.float32.affine") == 0) return 25000.0;
+  if (strcmp(id, "cpu.mandelbrot.q16") == 0) return 40000.0;
+  if (strcmp(id, "cpu.matrix.i16") == 0) return 30000.0;
+
+  if (strcmp(id, "memory.ram.memcpy.seq") == 0) return 16000.0;
+  if (strcmp(id, "memory.ram.memset.seq") == 0) return 16000.0;
+  if (strcmp(id, "memory.ram.read.strided") == 0) return 16000.0;
+  if (strcmp(id, "memory.heap.malloc_free.128b") == 0) return 12000.0;
+  if (strcmp(id, "memory.heap.fragmentation") == 0) return 6000.0;
+
+  return 0.0;
+}
+
+static double categoryScore(const char *category) {
   double logSum = 0.0;
-  uint32_t count = 0;
+  double weightSum = 0.0;
   for (uint32_t i = 0; i < gMetricCount; ++i) {
-    if (strcmp(gMetrics[i].category, category) == 0 && gMetrics[i].mean > 0.0) {
-      logSum += log(1000.0 / gMetrics[i].mean);
-      ++count;
+    if (strcmp(gMetrics[i].category, category) != 0 || gMetrics[i].median <= 0.0) {
+      continue;
     }
+    const double ref = referenceUs(gMetrics[i].id);
+    if (ref <= 0.0) {
+      continue;
+    }
+    double ratio = ref / gMetrics[i].median;
+    if (ratio < 0.25) ratio = 0.25;
+    if (ratio > 4.0) ratio = 4.0;
+    logSum += log(ratio);
+    weightSum += 1.0;
   }
-  if (count == 0) {
-    return 0;
+  if (weightSum <= 0.0) {
+    return 0.0;
   }
-  return (uint32_t)(exp(logSum / (double)count) * 1000.0 + 0.5);
+  return exp(logSum / weightSum) * 1000.0;
 }
 
 static void printMetricRow(const Metric &metric) {
@@ -903,7 +1018,7 @@ static void printMetricGroup(const char *title, const char *category) {
   Serial.println();
   Serial.println(title);
   Serial.print("Score: ");
-  Serial.print(categoryScore(category));
+  Serial.print(categoryScore(category), 1);
   Serial.println(" (higher is better)");
   Serial.println("Raw time unit: microseconds per test run. The score above is the comparison value.");
   Serial.println();

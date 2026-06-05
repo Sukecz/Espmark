@@ -4,3 +4,15 @@ results/
 __pycache__/
 *.uid-*
 arduino/espmark/build/
+
+# Local runtime data and deployment state
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.db
+*.log
+.env
+.env.*
+
+# Local planning notes that are not part of the public release
+espmark-license-brand-setup.md

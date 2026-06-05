@@ -1,0 +1,188 @@
+{
+  "submission_schema_version": "1.0.0-beta",
+  "scoring_version": "espmark-score-preview-3",
+  "reference_set_id": "espmark-ref-stress-preview-1",
+  "benchmark_profile": "espmark-core-stress-preview",
+  "test_set_id": "espmark-core-stress-preview-1",
+  "mode": "full",
+  "canonical_value": "median",
+  "ratio_clamp": {
+    "minimum": 0.25,
+    "maximum": 4.0
+  },
+  "stability": {
+    "free_ratio": 1.10,
+    "penalty_per_ratio": 0.25,
+    "max_penalty": 0.05
+  },
+  "category_weights": {
+    "cpu": 40,
+    "memory": 30,
+    "flash": 10,
+    "practical_iot": 20
+  },
+  "metrics": {
+    "cpu.integer.add_mul.u32": {
+      "category": "cpu",
+      "subcategory": "CPU integer micro-suite",
+      "label": "Basic math",
+      "reference": 10000.0,
+      "direction": "lower_is_better",
+      "weight": 4.5,
+      "required": true
+    },
+    "cpu.integer.div_mod.u32": {
+      "category": "cpu",
+      "subcategory": "CPU integer micro-suite",
+      "label": "Hard math",
+      "reference": 30000.0,
+      "direction": "lower_is_better",
+      "weight": 4.5,
+      "required": true
+    },
+    "cpu.integer.branch.u32": {
+      "category": "cpu",
+      "subcategory": "CPU integer micro-suite",
+      "label": "Decision speed",
+      "reference": 12000.0,
+      "direction": "lower_is_better",
+      "weight": 4.5,
+      "required": true
+    },
+    "cpu.integer.crc_like.u32": {
+      "category": "cpu",
+      "subcategory": "CPU integer micro-suite",
+      "label": "Data crunching",
+      "reference": 45000.0,
+      "direction": "lower_is_better",
+      "weight": 4.5,
+      "required": true
+    },
+    "cpu.sustained.mix": {
+      "category": "cpu",
+      "subcategory": "CPU sustained stress",
+      "label": "Sustained CPU mix",
+      "reference": 35000.0,
+      "direction": "lower_is_better",
+      "weight": 8,
+      "required": true
+    },
+    "cpu.float32.affine": {
+      "category": "cpu",
+      "subcategory": "CPU float/math",
+      "label": "Float32 affine",
+      "reference": 25000.0,
+      "direction": "lower_is_better",
+      "weight": 6,
+      "required": true
+    },
+    "cpu.mandelbrot.q16": {
+      "category": "cpu",
+      "subcategory": "Deterministic compute test",
+      "label": "Mandelbrot fixed-point",
+      "reference": 40000.0,
+      "direction": "lower_is_better",
+      "weight": 8,
+      "required": true
+    },
+    "cpu.matrix.i16": {
+      "category": "cpu",
+      "subcategory": "Supplemental compute",
+      "label": "Matrix multiply",
+      "reference": 30000.0,
+      "direction": "lower_is_better",
+      "weight": 0,
+      "required": false
+    },
+    "memory.ram.memcpy.seq": {
+      "category": "memory",
+      "subcategory": "Memory/RAM bandwidth",
+      "label": "RAM copy",
+      "reference": 16000.0,
+      "direction": "lower_is_better",
+      "weight": 6.67,
+      "required": true
+    },
+    "memory.ram.memset.seq": {
+      "category": "memory",
+      "subcategory": "Memory/RAM bandwidth",
+      "label": "RAM fill",
+      "reference": 16000.0,
+      "direction": "lower_is_better",
+      "weight": 6.67,
+      "required": true
+    },
+    "memory.ram.read.strided": {
+      "category": "memory",
+      "subcategory": "Memory/RAM bandwidth",
+      "label": "RAM read",
+      "reference": 16000.0,
+      "direction": "lower_is_better",
+      "weight": 6.67,
+      "required": true
+    },
+    "memory.heap.malloc_free.128b": {
+      "category": "memory",
+      "subcategory": "Heap alloc/free churn",
+      "label": "Small allocations",
+      "reference": 12000.0,
+      "direction": "lower_is_better",
+      "weight": 6,
+      "required": true
+    },
+    "memory.heap.fragmentation": {
+      "category": "memory",
+      "subcategory": "Heap fragmentation",
+      "label": "Heap fragmentation",
+      "reference": 6000.0,
+      "direction": "lower_is_better",
+      "weight": 4,
+      "required": true
+    },
+    "flash.read.seq": {
+      "category": "flash",
+      "subcategory": "Flash read",
+      "label": "Flash sequential read",
+      "reference": 128000.0,
+      "direction": "lower_is_better",
+      "weight": 10,
+      "required": true
+    },
+    "practical.crc32.sw": {
+      "category": "practical_iot",
+      "subcategory": "CRC32 software",
+      "label": "CRC32 software",
+      "reference": 35000.0,
+      "direction": "lower_is_better",
+      "weight": 3,
+      "required": true
+    },
+    "practical.sha256.sw": {
+      "category": "practical_iot",
+      "subcategory": "SHA-256 software",
+      "label": "SHA-256 software",
+      "reference": 70000.0,
+      "direction": "lower_is_better",
+      "weight": 7,
+      "required": true
+    },
+    "practical.json.roundtrip": {
+      "category": "practical_iot",
+      "subcategory": "JSON parse/generate",
+      "label": "JSON roundtrip",
+      "reference": 50000.0,
+      "direction": "lower_is_better",
+      "weight": 7,
+      "required": true
+    },
+    "practical.string.format": {
+      "category": "practical_iot",
+      "subcategory": "String formatting",
+      "label": "String formatting",
+      "reference": 25000.0,
+      "direction": "lower_is_better",
+      "weight": 3,
+      "required": true
+    }
+  }
+}

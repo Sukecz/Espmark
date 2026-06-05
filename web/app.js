@@ -8,6 +8,7 @@ const refreshResultsButton = document.querySelector("#refreshResultsButton");
 const serialLog = document.querySelector("#serialLog");
 const connectionState = document.querySelector("#connectionState");
 const resultState = document.querySelector("#resultState");
+const benchmarkStatusCard = document.querySelector("#benchmarkStatusCard");
 const resultSummary = document.querySelector("#resultSummary");
 const resultsTable = document.querySelector("#resultsTable");
 const contributorName = document.querySelector("#contributorName");
@@ -56,132 +57,133 @@ let reportFormRenderedAt = Date.now();
 let loadedResults = [];
 let resultsSortKey = "submitted_at";
 let resultsSortDirection = "desc";
+let scoringRegistry;
 
 const benchmarkTests = {
   "cpu.integer.add_mul.u32": {
     category: "cpu",
     label: "Basic math",
     detail: "Measures simple 32-bit integer arithmetic used in normal control loops and counters.",
-    baselineUs: 1000,
+    baselineUs: 10000,
     scoreWeight: 4.5,
   },
   "cpu.integer.div_mod.u32": {
     category: "cpu",
     label: "Hard math",
     detail: "Measures slower integer division and modulo operations that often appear in parsers and conversions.",
-    baselineUs: 1000,
+    baselineUs: 30000,
     scoreWeight: 4.5,
   },
   "cpu.integer.branch.u32": {
     category: "cpu",
     label: "Decision speed",
     detail: "Measures branch-heavy code where the processor has to make many small decisions.",
-    baselineUs: 1000,
+    baselineUs: 12000,
     scoreWeight: 4.5,
   },
   "cpu.integer.crc_like.u32": {
     category: "cpu",
     label: "Data crunching",
     detail: "Measures bit-level integer processing similar to checksums and protocol work.",
-    baselineUs: 1000,
+    baselineUs: 45000,
     scoreWeight: 4.5,
   },
   "memory.ram.memcpy.seq": {
     category: "memory",
     label: "RAM copy",
     detail: "Measures sequential copying of RAM buffers.",
-    baselineUs: 1000,
+    baselineUs: 16000,
     scoreWeight: 6.67,
   },
   "memory.ram.memset.seq": {
     category: "memory",
     label: "RAM fill",
     detail: "Measures how quickly the board fills RAM buffers with fixed values.",
-    baselineUs: 1000,
+    baselineUs: 16000,
     scoreWeight: 6.67,
   },
   "memory.ram.read.strided": {
     category: "memory",
     label: "RAM read",
     detail: "Measures strided reads across RAM, which is sensitive to memory/cache behavior.",
-    baselineUs: 1000,
+    baselineUs: 16000,
     scoreWeight: 6.67,
   },
   "memory.heap.malloc_free.128b": {
     category: "memory",
     label: "Small allocations",
     detail: "Measures repeated small heap allocations and frees.",
-    baselineUs: 1000,
+    baselineUs: 12000,
     scoreWeight: 6,
   },
   "memory.heap.fragmentation": {
     category: "memory",
     label: "Heap fragmentation",
     detail: "Measures a mixed allocation/free pattern that can reveal heap fragmentation overhead.",
-    baselineUs: 1000,
+    baselineUs: 6000,
     scoreWeight: 4,
   },
   "cpu.sustained.mix": {
     category: "cpu",
     label: "Sustained CPU",
     detail: "Measures a longer mixed integer workload with watchdog-safe yield points.",
-    baselineUs: 1000,
+    baselineUs: 35000,
     scoreWeight: 8,
   },
   "cpu.float32.affine": {
     category: "cpu",
     label: "Float32",
     detail: "Measures single-precision floating point math used by filters and sensor calculations.",
-    baselineUs: 1000,
+    baselineUs: 25000,
     scoreWeight: 6,
   },
   "cpu.mandelbrot.q16": {
     category: "cpu",
     label: "Mandelbrot",
     detail: "Measures a deterministic fixed-point compute workload, closer to a real algorithm than a microtest.",
-    baselineUs: 1000,
+    baselineUs: 40000,
     scoreWeight: 8,
   },
   "cpu.matrix.i16": {
     category: "cpu",
     label: "Matrix",
     detail: "Supplemental integer matrix multiply workload; shown for detail, not part of the headline score.",
-    baselineUs: 1000,
+    baselineUs: 30000,
     scoreWeight: 0,
   },
   "flash.read.seq": {
     category: "flash",
     label: "Flash read",
     detail: "Measures read-only sequential access to data stored in flash.",
-    baselineUs: 1000,
+    baselineUs: 128000,
     scoreWeight: 10,
   },
   "practical.crc32.sw": {
     category: "practical_iot",
     label: "CRC32",
     detail: "Measures portable software CRC32 over a RAM buffer.",
-    baselineUs: 1000,
+    baselineUs: 35000,
     scoreWeight: 3,
   },
   "practical.sha256.sw": {
     category: "practical_iot",
     label: "SHA-256",
     detail: "Measures portable software SHA-256 without using hardware crypto acceleration.",
-    baselineUs: 1000,
+    baselineUs: 70000,
     scoreWeight: 7,
   },
   "practical.json.roundtrip": {
     category: "practical_iot",
     label: "JSON",
     detail: "Measures generating and reading a fixed IoT-style JSON payload.",
-    baselineUs: 1000,
+    baselineUs: 50000,
     scoreWeight: 7,
   },
   "practical.string.format": {
     category: "practical_iot",
     label: "Strings",
     detail: "Measures fixed-buffer text formatting for logs, diagnostics and payloads.",
-    baselineUs: 1000,
+    baselineUs: 25000,
     scoreWeight: 3,
   },
 };
@@ -260,6 +262,32 @@ async function loadChallenge(target) {
   }
 }
 
+async function loadScoringRegistry() {
+  try {
+    const response = await fetch("/api/scoring", { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    scoringRegistry = await response.json();
+    for (const [testId, spec] of Object.entries(scoringRegistry.metrics || {})) {
+      benchmarkTests[testId] = {
+        ...(benchmarkTests[testId] || {}),
+        category: spec.category,
+        label: benchmarkTests[testId]?.label || spec.label,
+        baselineUs: spec.reference,
+        scoreWeight: spec.weight,
+      };
+    }
+    const required = Object.entries(scoringRegistry.metrics || {})
+      .filter(([, spec]) => spec.required)
+      .map(([testId]) => testId);
+    requiredCoreTests.splice(0, requiredCoreTests.length, ...required);
+    Object.assign(categoryWeights, scoringRegistry.category_weights || {});
+  } catch (error) {
+    console.warn("Scoring registry could not load", error);
+  }
+}
+
 async function setupBotCheck() {
   if (!botQuestion) {
     return;
@@ -309,6 +337,25 @@ function setSerialSupport() {
 
   connectionHint.textContent = "Web Serial is unavailable here. Use Chrome or Edge over HTTPS.";
   connectButton.disabled = true;
+}
+
+function setBenchmarkState(state, resultText, connectionText) {
+  if (resultState) {
+    resultState.textContent = resultText;
+  }
+  if (connectionText && connectionState) {
+    connectionState.textContent = connectionText;
+  }
+  if (benchmarkStatusCard) {
+    benchmarkStatusCard.className = `benchmark-state is-${state}`;
+  }
+}
+
+function setRunButtonSuggested(enabled) {
+  if (!runButton) {
+    return;
+  }
+  runButton.classList.toggle("is-suggested", enabled);
 }
 
 function appendLogLine(line) {
@@ -382,10 +429,11 @@ function categoryScore(result, category) {
       if (weight <= 0) {
         return undefined;
       }
-      if (!baselineUs || !Number.isFinite(metric.mean) || metric.mean <= 0) {
+      const rawValue = Number.isFinite(metric.median) && metric.median > 0 ? metric.median : metric.mean;
+      if (!baselineUs || !Number.isFinite(rawValue) || rawValue <= 0) {
         return undefined;
       }
-      return { ratio: baselineUs / metric.mean, weight };
+      return { ratio: Math.min(4, Math.max(0.25, baselineUs / rawValue)), weight };
     })
     .filter((score) => Number.isFinite(score?.ratio) && score.ratio > 0 && score.weight > 0);
 
@@ -576,7 +624,7 @@ function scheduleAutoJsonRequest() {
       return;
     }
     autoRequestingJson = true;
-    resultState.textContent = "Reading result";
+    setBenchmarkState("reading", "Reading result");
     jsonButton.disabled = true;
     sendSerial("j\n");
   }, 800);
@@ -628,7 +676,7 @@ function setResultWaiting(message) {
   clearTimeout(autoJsonTimer);
   autoRequestingJson = false;
   submitButton.disabled = true;
-  resultState.textContent = "Waiting";
+  setBenchmarkState("waiting", "Waiting");
   submitStatus.textContent = "A completed benchmark result is required.";
   resultSummary.classList.add("empty");
   resultSummary.textContent = message;
@@ -652,7 +700,8 @@ function renderCurrentResult(result, submission) {
   currentResult = result;
   currentSubmission = submission;
   clearTimeout(autoJsonTimer);
-  resultState.textContent = "Ready";
+  setBenchmarkState("ready", "Ready");
+  setRunButtonSuggested(false);
   submitStatus.textContent = "Enter your name and answer the server check to publish.";
   submitButton.disabled = false;
   jsonButton.disabled = false;
@@ -664,7 +713,7 @@ function renderCurrentResult(result, submission) {
 
 function renderPublishedSubmission(submission) {
   currentSubmission = submission;
-  resultState.textContent = "Published";
+  setBenchmarkState("ready", "Published");
   renderSubmissionView(submission, { published: true });
 }
 
@@ -715,12 +764,15 @@ function renderSubmissionView(submission, { published }) {
 
   if (!submission.validation?.valid_for_leaderboard) {
     const missing = submission.validation?.missing_metrics || [];
+    const issues = submission.validation?.issues || [];
     const warning = document.createElement("div");
     warning.className = "result-warning";
     const title = document.createElement("strong");
-    title.textContent = "Incomplete result";
+    title.textContent = "Not valid for leaderboard";
     const text = document.createElement("span");
-    text.textContent = `This firmware output is missing ${missing.length} required metrics. Flash Espmark 0.2.1 or newer before publishing to the main leaderboard.`;
+    text.textContent = issues.length > 0
+      ? issues.join("; ")
+      : `This firmware output is missing ${missing.length} required metrics. Flash the current Espmark firmware before publishing.`;
     warning.append(title, text);
     resultSummary.appendChild(warning);
   }
@@ -740,28 +792,6 @@ function renderRecordDetail(record) {
   const wrapper = document.createElement("div");
   wrapper.className = "result-detail";
 
-  const scores = document.createElement("div");
-  scores.className = "score-grid";
-  const scoreItems = [
-    ["Espmark", "espmark_core_score"],
-    ["CPU", "cpu_score"],
-    ["Memory", "memory_score"],
-    ["Flash", "flash_score"],
-    ["Practical IoT", "practical_iot_score"],
-    ["Stability", "stability_factor"],
-  ];
-  for (const [labelText, key] of scoreItems) {
-    const card = document.createElement("div");
-    card.className = "score-mini";
-    const labelNode = document.createElement("span");
-    labelNode.textContent = labelText;
-    const valueNode = document.createElement("strong");
-    valueNode.textContent = formatScore1(scoreFromRecord(record, key));
-    card.append(labelNode, valueNode);
-    scores.appendChild(card);
-  }
-  wrapper.appendChild(scores);
-
   if (rawResult) {
     const meta = document.createElement("div");
     meta.className = "result-detail-meta";
@@ -779,14 +809,14 @@ function renderRecordDetail(record) {
       if (metrics.length === 0) {
         continue;
       }
-      wrapper.appendChild(renderMetricDetails(category, metrics, false, record.metric_scores));
+      wrapper.appendChild(renderMetricDetails(category, metrics, false, record.metric_scores, { showCategoryScore: false }));
     }
   }
 
   return wrapper;
 }
 
-function renderMetricDetails(category, metrics, openByDefault, metricScores = {}) {
+function renderMetricDetails(category, metrics, openByDefault, metricScores = {}, options = {}) {
   const section = document.createElement("details");
   section.className = "metric-section";
   section.open = openByDefault;
@@ -798,11 +828,14 @@ function renderMetricDetails(category, metrics, openByDefault, metricScores = {}
   const subtitle = document.createElement("span");
   subtitle.textContent = categoryCopy[category].subtitle;
   text.append(title, document.createElement("br"), subtitle);
-  const score = document.createElement("strong");
-  score.className = "score-value";
-  const syntheticResult = { results: metrics };
-  score.textContent = formatScore(categoryScore(syntheticResult, category));
-  sectionHeader.append(text, score);
+  sectionHeader.appendChild(text);
+  if (options.showCategoryScore !== false) {
+    const score = document.createElement("strong");
+    score.className = "score-value";
+    const syntheticResult = { results: metrics };
+    score.textContent = formatScore(categoryScore(syntheticResult, category));
+    sectionHeader.appendChild(score);
+  }
   section.appendChild(sectionHeader);
 
   for (const metric of metrics) {
@@ -812,7 +845,10 @@ function renderMetricDetails(category, metrics, openByDefault, metricScores = {}
     const label = document.createElement("strong");
     label.textContent = metricLabel(metric.test_id);
     const meta = document.createElement("span");
-    meta.textContent = `${metricDescription(metric)} ${metricStatsLine(metric)}`;
+    const audit = metric.work_units && metric.checksum
+      ? ` Work units: ${metric.work_units}; checksum: ${metric.checksum}.`
+      : "";
+    meta.textContent = `${metricDescription(metric)} ${metricStatsLine(metric)}${audit}`;
     cardText.append(label, document.createElement("br"), meta);
     const value = document.createElement("strong");
     value.className = "metric-value";
@@ -827,7 +863,7 @@ function renderMetricDetails(category, metrics, openByDefault, metricScores = {}
 async function renderCapturedJson(jsonText) {
   const requestId = ++currentPreviewRequest;
   const result = JSON.parse(jsonText);
-  resultState.textContent = "Scoring";
+  setBenchmarkState("scoring", "Scoring");
   const preview = await scorePreview(result);
   if (requestId !== currentPreviewRequest) {
     return;
@@ -841,7 +877,7 @@ function parseSerialLine(line) {
   if (trimmed === "ESPMARK_RESULT_BEGIN") {
     capturingJson = true;
     jsonCapture = "";
-    resultState.textContent = "Reading JSON";
+    setBenchmarkState("reading", "Reading JSON");
     clearTimeout(autoJsonTimer);
     return;
   }
@@ -850,11 +886,11 @@ function parseSerialLine(line) {
     capturingJson = false;
     try {
       renderCapturedJson(jsonCapture).catch((error) => {
-        resultState.textContent = "Scoring failed";
+        setBenchmarkState("error", "Scoring failed");
         appendSystemLog(`Score preview failed: ${error.message}`);
       });
     } catch (error) {
-      resultState.textContent = "JSON failed";
+      setBenchmarkState("error", "JSON failed");
       appendSystemLog(`JSON parse failed: ${error.message}`);
     }
     return;
@@ -900,9 +936,10 @@ async function readLoop() {
     }
   } finally {
     reader.releaseLock();
-    connectionState.textContent = "Disconnected";
+    setBenchmarkState("waiting", "Waiting", "Board disconnected");
     connectButton.disabled = false;
     runButton.disabled = true;
+    setRunButtonSuggested(false);
     jsonButton.disabled = true;
   }
 }
@@ -923,9 +960,9 @@ async function connectSerial() {
   writer = port.writable.getWriter();
   connectButton.disabled = true;
   runButton.disabled = false;
+  setRunButtonSuggested(true);
   jsonButton.disabled = false;
-  connectionState.textContent = "Connected";
-  resultState.textContent = "Idle";
+  setBenchmarkState("connected", "Ready to run", "Board connected");
   appendSystemLog("Connected. Run the benchmark when the board is ready.");
   readLoop();
 }
@@ -1101,23 +1138,80 @@ function drawResultsTable(rows) {
     row.className = "result-row";
     row.tabIndex = 0;
     row.setAttribute("aria-expanded", "false");
+    const contributor = rowResult.contributor || "-";
+    const boardName = rawResult?.board?.name || rowResult.board_selected_by_user || "-";
+    const chipName = `${rawResult?.board?.soc || "-"} r${rawResult?.board?.revision ?? "-"}`;
+    const espmarkScore = formatScore1(scoreFromRecord(rowResult, "espmark_core_score"));
+    const cpuScore = formatScore1(scoreFromRecord(rowResult, "cpu_score"));
+    const memoryScore = formatScore1(scoreFromRecord(rowResult, "memory_score"));
+    const flashScore = formatScore1(scoreFromRecord(rowResult, "flash_score"));
+    const practicalScore = formatScore1(scoreFromRecord(rowResult, "practical_iot_score"));
+    const cpuClock = `${rawResult?.config?.cpu_freq_mhz || "-"} MHz`;
+    const firmware = rawResult?.firmware_version || "-";
+    const submitted = new Date(rowResult.submitted_at).toLocaleString();
+
+    const mobileCell = document.createElement("td");
+    mobileCell.className = "mobile-result-card";
+    mobileCell.innerHTML = `
+      <div class="mobile-result-main">
+        <div>
+          <span>Board and chip</span>
+          <strong></strong>
+          <em></em>
+        </div>
+        <div class="mobile-score">
+          <span>Espmark</span>
+          <strong></strong>
+        </div>
+      </div>
+      <div class="mobile-score-grid">
+        <span>CPU <strong></strong></span>
+        <span>Memory <strong></strong></span>
+        <span>Flash <strong></strong></span>
+        <span>IoT <strong></strong></span>
+      </div>
+      <div class="mobile-result-meta"></div>
+    `;
+    mobileCell.querySelector(".mobile-result-main strong").textContent = boardName;
+    mobileCell.querySelector(".mobile-result-main em").textContent = chipName;
+    mobileCell.querySelector(".mobile-score strong").textContent = espmarkScore;
+    const mobileScores = mobileCell.querySelectorAll(".mobile-score-grid strong");
+    mobileScores[0].textContent = cpuScore;
+    mobileScores[1].textContent = memoryScore;
+    mobileScores[2].textContent = flashScore;
+    mobileScores[3].textContent = practicalScore;
+    mobileCell.querySelector(".mobile-result-meta").textContent = `${contributor} · ${cpuClock} · firmware ${firmware} · ${submitted}`;
+    row.appendChild(mobileCell);
+
     const cells = [
-      ["Name", rowResult.contributor],
-      ["Board", rawResult?.board?.name || rowResult.board_selected_by_user || "-"],
-      ["Chip", `${rawResult?.board?.soc || "-"} r${rawResult?.board?.revision ?? "-"}`],
-      ["Espmark score", formatScore1(scoreFromRecord(rowResult, "espmark_core_score"))],
-      ["CPU score", formatScore1(scoreFromRecord(rowResult, "cpu_score"))],
-      ["Memory score", formatScore1(scoreFromRecord(rowResult, "memory_score"))],
-      ["Flash score", formatScore1(scoreFromRecord(rowResult, "flash_score"))],
-      ["Practical IoT", formatScore1(scoreFromRecord(rowResult, "practical_iot_score"))],
-      ["CPU clock", `${rawResult?.config?.cpu_freq_mhz || "-"} MHz`],
-      ["Firmware", rawResult?.firmware_version || "-"],
-      ["Submitted", new Date(rowResult.submitted_at).toLocaleString()],
+      ["Name", contributor],
+      ["Board", boardName],
+      ["Chip", chipName],
+      ["Espmark score", espmarkScore],
+      ["CPU score", cpuScore],
+      ["Memory score", memoryScore],
+      ["Flash score", flashScore],
+      ["Practical IoT", practicalScore],
+      ["CPU clock", cpuClock],
+      ["Firmware", firmware],
+      ["Submitted", submitted],
     ];
     for (const [label, cellText] of cells) {
       const cell = document.createElement("td");
       cell.dataset.label = label;
-      cell.textContent = cellText;
+      if (label === "Espmark score") {
+        cell.className = "score-leader-cell";
+        const scoreValue = document.createElement("strong");
+        scoreValue.textContent = cellText;
+        cell.appendChild(scoreValue);
+      } else if (["CPU score", "Memory score", "Flash score", "Practical IoT"].includes(label)) {
+        cell.className = "score-cell";
+        const scoreValue = document.createElement("strong");
+        scoreValue.textContent = cellText;
+        cell.appendChild(scoreValue);
+      } else {
+        cell.textContent = cellText;
+      }
       row.appendChild(cell);
     }
     resultsTable.appendChild(row);
@@ -1166,15 +1260,15 @@ for (const button of themeButtons) {
 
 connectButton?.addEventListener("click", () => {
   connectSerial().catch((error) => {
-    connectionState.textContent = "Failed";
-    resultState.textContent = "Connection failed";
+    setBenchmarkState("error", "Connection failed", "Connection failed");
     appendSystemLog(`Connection failed: ${error.message}`);
   });
 });
 
 runButton?.addEventListener("click", () => {
   setResultWaiting("Waiting for benchmark output from the board.");
-  resultState.textContent = "Running";
+  setBenchmarkState("running", "Running", "Board connected");
+  setRunButtonSuggested(false);
   sendSerial("\n");
 });
 
@@ -1230,5 +1324,6 @@ initTheme();
 setupBotCheck();
 setSerialSupport();
 setResultWaiting("Run the benchmark to capture board metadata, firmware details and the full Espmark metric set.");
+loadScoringRegistry();
 loadBoardCatalog();
 renderResultsTable();

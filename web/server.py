@@ -21,15 +21,16 @@ DATA_DIR = Path(os.environ.get("ESPMARK_DATA_DIR", "/data"))
 RESULTS_FILE = DATA_DIR / "results.json"
 DATABASE_FILE = DATA_DIR / "espmark.sqlite3"
 BOARDS_FILE = ROOT / "boards.json"
+SCORING_FILE = ROOT / "scoring" / "espmark-score-preview-3.json"
 MAX_BODY = 256 * 1024
 CHALLENGE_TTL_SECONDS = 10 * 60
 CHALLENGE_SECRET = os.environ.get("ESPMARK_CHALLENGE_SECRET") or secrets.token_hex(32)
 USED_CHALLENGE_NONCES = set()
 SUBMISSION_SCHEMA_VERSION = "1.0.0-beta"
-SCORING_VERSION = "espmark-score-preview-2"
-REFERENCE_SET_ID = "espmark-ref-preview-2"
-BENCHMARK_PROFILE = "espmark-core-preview"
-TEST_SET_ID = "espmark-core-preview-1"
+SCORING_VERSION = "espmark-score-preview-3"
+REFERENCE_SET_ID = "espmark-ref-stress-preview-1"
+BENCHMARK_PROFILE = "espmark-core-stress-preview"
+TEST_SET_ID = "espmark-core-stress-preview-1"
 
 
 SCORING_METRICS = {
@@ -37,7 +38,7 @@ SCORING_METRICS = {
         "category": "cpu",
         "subcategory": "CPU integer micro-suite",
         "label": "Basic math",
-        "reference": 1000.0,
+        "reference": 10000.0,
         "direction": "lower_is_better",
         "weight": 4.5,
         "required": True,
@@ -46,7 +47,7 @@ SCORING_METRICS = {
         "category": "cpu",
         "subcategory": "CPU integer micro-suite",
         "label": "Hard math",
-        "reference": 1000.0,
+        "reference": 30000.0,
         "direction": "lower_is_better",
         "weight": 4.5,
         "required": True,
@@ -55,7 +56,7 @@ SCORING_METRICS = {
         "category": "cpu",
         "subcategory": "CPU integer micro-suite",
         "label": "Decision speed",
-        "reference": 1000.0,
+        "reference": 12000.0,
         "direction": "lower_is_better",
         "weight": 4.5,
         "required": True,
@@ -64,7 +65,7 @@ SCORING_METRICS = {
         "category": "cpu",
         "subcategory": "CPU integer micro-suite",
         "label": "Data crunching",
-        "reference": 1000.0,
+        "reference": 45000.0,
         "direction": "lower_is_better",
         "weight": 4.5,
         "required": True,
@@ -73,7 +74,7 @@ SCORING_METRICS = {
         "category": "memory",
         "subcategory": "Memory/RAM bandwidth",
         "label": "RAM copy",
-        "reference": 1000.0,
+        "reference": 16000.0,
         "direction": "lower_is_better",
         "weight": 6.67,
         "required": True,
@@ -82,7 +83,7 @@ SCORING_METRICS = {
         "category": "memory",
         "subcategory": "Memory/RAM bandwidth",
         "label": "RAM fill",
-        "reference": 1000.0,
+        "reference": 16000.0,
         "direction": "lower_is_better",
         "weight": 6.67,
         "required": True,
@@ -91,7 +92,7 @@ SCORING_METRICS = {
         "category": "memory",
         "subcategory": "Memory/RAM bandwidth",
         "label": "RAM read",
-        "reference": 1000.0,
+        "reference": 16000.0,
         "direction": "lower_is_better",
         "weight": 6.67,
         "required": True,
@@ -100,7 +101,7 @@ SCORING_METRICS = {
         "category": "memory",
         "subcategory": "Heap alloc/free churn",
         "label": "Small allocations",
-        "reference": 1000.0,
+        "reference": 12000.0,
         "direction": "lower_is_better",
         "weight": 6,
         "required": True,
@@ -109,7 +110,7 @@ SCORING_METRICS = {
         "category": "memory",
         "subcategory": "Heap fragmentation",
         "label": "Heap fragmentation",
-        "reference": 1000.0,
+        "reference": 6000.0,
         "direction": "lower_is_better",
         "weight": 4,
         "required": True,
@@ -118,7 +119,7 @@ SCORING_METRICS = {
         "category": "cpu",
         "subcategory": "CPU sustained stress",
         "label": "Sustained CPU mix",
-        "reference": 1000.0,
+        "reference": 35000.0,
         "direction": "lower_is_better",
         "weight": 8,
         "required": True,
@@ -127,7 +128,7 @@ SCORING_METRICS = {
         "category": "cpu",
         "subcategory": "Deterministic compute test",
         "label": "Mandelbrot fixed-point",
-        "reference": 1000.0,
+        "reference": 40000.0,
         "direction": "lower_is_better",
         "weight": 8,
         "required": True,
@@ -136,7 +137,7 @@ SCORING_METRICS = {
         "category": "cpu",
         "subcategory": "Supplemental compute",
         "label": "Matrix multiply",
-        "reference": 1000.0,
+        "reference": 30000.0,
         "direction": "lower_is_better",
         "weight": 0,
         "required": False,
@@ -145,7 +146,7 @@ SCORING_METRICS = {
         "category": "cpu",
         "subcategory": "CPU float/math",
         "label": "Float32 affine",
-        "reference": 1000.0,
+        "reference": 25000.0,
         "direction": "lower_is_better",
         "weight": 6,
         "required": True,
@@ -154,7 +155,7 @@ SCORING_METRICS = {
         "category": "flash",
         "subcategory": "Flash read",
         "label": "Flash sequential read",
-        "reference": 1000.0,
+        "reference": 128000.0,
         "direction": "lower_is_better",
         "weight": 10,
         "required": True,
@@ -163,7 +164,7 @@ SCORING_METRICS = {
         "category": "practical_iot",
         "subcategory": "JSON parse/generate",
         "label": "JSON roundtrip",
-        "reference": 1000.0,
+        "reference": 50000.0,
         "direction": "lower_is_better",
         "weight": 7,
         "required": True,
@@ -172,7 +173,7 @@ SCORING_METRICS = {
         "category": "practical_iot",
         "subcategory": "String formatting",
         "label": "String formatting",
-        "reference": 1000.0,
+        "reference": 25000.0,
         "direction": "lower_is_better",
         "weight": 3,
         "required": True,
@@ -181,7 +182,7 @@ SCORING_METRICS = {
         "category": "practical_iot",
         "subcategory": "CRC32 software",
         "label": "CRC32 software",
-        "reference": 1000.0,
+        "reference": 35000.0,
         "direction": "lower_is_better",
         "weight": 3,
         "required": True,
@@ -190,7 +191,7 @@ SCORING_METRICS = {
         "category": "practical_iot",
         "subcategory": "SHA-256 software",
         "label": "SHA-256 software",
-        "reference": 1000.0,
+        "reference": 70000.0,
         "direction": "lower_is_better",
         "weight": 7,
         "required": True,
@@ -203,6 +204,24 @@ CATEGORY_WEIGHTS = {
     "flash": 10,
     "practical_iot": 20,
 }
+
+
+def load_scoring_config():
+    with SCORING_FILE.open(encoding="utf-8") as file:
+        config = json.load(file)
+    if not isinstance(config.get("metrics"), dict) or not config["metrics"]:
+        raise RuntimeError("scoring registry has no metrics")
+    return config
+
+
+SCORING_CONFIG = load_scoring_config()
+SUBMISSION_SCHEMA_VERSION = SCORING_CONFIG["submission_schema_version"]
+SCORING_VERSION = SCORING_CONFIG["scoring_version"]
+REFERENCE_SET_ID = SCORING_CONFIG["reference_set_id"]
+BENCHMARK_PROFILE = SCORING_CONFIG["benchmark_profile"]
+TEST_SET_ID = SCORING_CONFIG["test_set_id"]
+SCORING_METRICS = SCORING_CONFIG["metrics"]
+CATEGORY_WEIGHTS = SCORING_CONFIG["category_weights"]
 
 
 class EspmarkHandler(SimpleHTTPRequestHandler):
@@ -218,6 +237,9 @@ class EspmarkHandler(SimpleHTTPRequestHandler):
             return
         if self.path == "/api/results":
             self.send_json(load_results(limit=500))
+            return
+        if self.path == "/api/scoring":
+            self.send_json(public_scoring_config())
             return
         super().do_GET()
 
@@ -456,6 +478,22 @@ def seed_scoring_metadata(connection):
     )
 
 
+def public_scoring_config():
+    return {
+        "submission_schema_version": SUBMISSION_SCHEMA_VERSION,
+        "scoring_version": SCORING_VERSION,
+        "reference_set_id": REFERENCE_SET_ID,
+        "benchmark_profile": BENCHMARK_PROFILE,
+        "test_set_id": TEST_SET_ID,
+        "mode": SCORING_CONFIG.get("mode", "full"),
+        "canonical_value": SCORING_CONFIG.get("canonical_value", "median"),
+        "ratio_clamp": SCORING_CONFIG.get("ratio_clamp", {"minimum": 0.25, "maximum": 4.0}),
+        "stability": SCORING_CONFIG.get("stability", {}),
+        "category_weights": CATEGORY_WEIGHTS,
+        "metrics": SCORING_METRICS,
+    }
+
+
 def load_results(limit=500):
     with db_connect() as connection:
         rows = connection.execute(
@@ -627,6 +665,74 @@ def json_compact(value):
     return json.dumps(value, separators=(",", ":"), ensure_ascii=False)
 
 
+def required_metric_ids():
+    return {
+        test_id for test_id, spec in SCORING_METRICS.items()
+        if spec.get("required")
+    }
+
+
+def validate_result_compatibility(raw_result, metrics):
+    issues = []
+    if raw_result.get("schema_version") != SUBMISSION_SCHEMA_VERSION:
+        issues.append("schema_version mismatch")
+    if raw_result.get("benchmark_profile") != BENCHMARK_PROFILE:
+        issues.append("benchmark_profile mismatch")
+    if raw_result.get("test_set_id") != TEST_SET_ID:
+        issues.append("test_set_id mismatch")
+    if raw_result.get("mode") != SCORING_CONFIG.get("mode", "full"):
+        issues.append("mode mismatch")
+    if not raw_result.get("official_generic_firmware"):
+        issues.append("official firmware flag missing")
+
+    seen = set()
+    duplicates = set()
+    numeric_issues = []
+    metadata_issues = []
+    for metric in metrics:
+        if not isinstance(metric, dict):
+            numeric_issues.append("invalid metric object")
+            continue
+        test_id = str(metric.get("test_id", ""))
+        if test_id in seen:
+            duplicates.add(test_id)
+        seen.add(test_id)
+        if test_id not in SCORING_METRICS:
+            continue
+        raw_value = metric_canonical_value(metric)
+        if raw_value is None:
+            numeric_issues.append(f"{test_id}: missing positive median")
+        for key in ("mean", "median", "stdev", "p95", "min", "max"):
+            try:
+                value = float(metric.get(key))
+            except (TypeError, ValueError):
+                numeric_issues.append(f"{test_id}: invalid {key}")
+                continue
+            if not math.isfinite(value) or value < 0:
+                numeric_issues.append(f"{test_id}: invalid {key}")
+        if metric.get("unit") != "us":
+            numeric_issues.append(f"{test_id}: invalid unit")
+        if test_id in required_metric_ids():
+            try:
+                work_units = int(metric.get("work_units", 0))
+            except (TypeError, ValueError):
+                work_units = 0
+            if work_units <= 0 or not str(metric.get("checksum", "")).strip():
+                metadata_issues.append(f"{test_id}: missing workload metadata")
+
+    if duplicates:
+        issues.append("duplicate metrics: " + ", ".join(sorted(duplicates)))
+    if numeric_issues:
+        issues.append("invalid metric values")
+    if metadata_issues:
+        issues.append("missing workload metadata")
+    return {
+        "issues": issues,
+        "numeric_issues": numeric_issues[:20],
+        "metadata_issues": metadata_issues[:20],
+    }
+
+
 def validate_submission(payload):
     contributor = str(payload.get("contributor", "")).strip()
     if not (2 <= len(contributor) <= 80):
@@ -654,7 +760,7 @@ def validate_submission(payload):
         raise ValueError("invalid result structure")
     validate_board_selection(board)
 
-    return build_submission_record(
+    record = build_submission_record(
         raw_result,
         contributor=contributor,
         transport={
@@ -668,6 +774,10 @@ def validate_submission(payload):
         publication_status="published",
         public=True,
     )
+    if not record["validation"]["valid_for_leaderboard"]:
+        issues = record["validation"].get("issues") or ["result is not valid for leaderboard"]
+        raise ValueError("; ".join(issues[:3]))
+    return record
 
 
 def build_submission_record(
@@ -687,24 +797,33 @@ def build_submission_record(
     if validate_board:
         validate_board_selection(board)
 
-    required_tests = {
-        test_id for test_id, spec in SCORING_METRICS.items()
-        if spec.get("required")
-    }
+    required_tests = required_metric_ids()
     submitted_tests = {item.get("test_id") for item in metrics if isinstance(item, dict)}
     missing_tests = sorted(required_tests - submitted_tests)
     if missing_tests and not allow_incomplete:
         raise ValueError("missing benchmark metrics")
 
+    compatibility = validate_result_compatibility(raw_result, metrics)
+    issues = list(compatibility["issues"])
+    if missing_tests:
+        issues.append("missing benchmark metrics")
+
     computed = compute_scores(raw_result, missing_tests=missing_tests)
+    valid_for_leaderboard = not issues and computed["scores"]["espmark_core_score"] is not None
     validation = {
-        "required_fields_ok": True,
+        "required_fields_ok": not compatibility["numeric_issues"],
         "required_metrics_ok": not missing_tests,
         "missing_metrics": missing_tests,
+        "issues": issues,
+        "numeric_issues": compatibility["numeric_issues"],
+        "metadata_issues": compatibility["metadata_issues"],
         "official_firmware_ok": bool(raw_result.get("official_generic_firmware", False)),
-        "known_answers_ok": True,
+        "compatible_profile_ok": raw_result.get("benchmark_profile") == BENCHMARK_PROFILE
+            and raw_result.get("test_set_id") == TEST_SET_ID
+            and raw_result.get("mode") == SCORING_CONFIG.get("mode", "full"),
+        "known_answers_ok": not compatibility["metadata_issues"],
         "score_computed_by_backend": True,
-        "valid_for_leaderboard": not missing_tests and computed["scores"]["espmark_core_score"] is not None,
+        "valid_for_leaderboard": valid_for_leaderboard,
     }
 
     submitted_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -806,7 +925,12 @@ def compute_scores(raw_result, missing_tests=None):
             ratio = raw_value / reference
         else:
             ratio = reference / raw_value
-        ratio = clamp(ratio, 0.25, 4.0)
+        ratio_clamp = SCORING_CONFIG.get("ratio_clamp", {})
+        ratio = clamp(
+            ratio,
+            float(ratio_clamp.get("minimum", 0.25)),
+            float(ratio_clamp.get("maximum", 4.0)),
+        )
         score = ratio * 1000.0
         category = spec["category"]
         weight = float(spec["weight"])
@@ -893,10 +1017,14 @@ def metric_stability_ratio(metric):
 def compute_stability_factor(inputs):
     if not inputs:
         return 1.0
+    stability = SCORING_CONFIG.get("stability", {})
+    free_ratio = float(stability.get("free_ratio", 1.10))
+    penalty_per_ratio = float(stability.get("penalty_per_ratio", 0.25))
+    max_penalty = float(stability.get("max_penalty", 0.05))
     stability_ratio = weighted_geomean(inputs)
-    if stability_ratio <= 1.10:
+    if stability_ratio <= free_ratio:
         return 1.0
-    return max(0.95, 1.0 - 0.25 * (stability_ratio - 1.10))
+    return max(1.0 - max_penalty, 1.0 - penalty_per_ratio * (stability_ratio - free_ratio))
 
 
 def weighted_geomean(inputs):

@@ -1,0 +1,30 @@
+Espmark
+Copyright 2026 Espmark contributors
+
+Espmark is an open-source community benchmark project for ESP8266 and
+ESP32-family boards.
+
+The firmware, benchmark code, scoring registry, tests, scripts, and
+documentation in this repository are licensed under the Apache License, Version
+2.0, unless stated otherwise in a specific file or directory.
+
+The Espmark name, logo, visual identity, website design, domain names, official
+leaderboard, result database, and brand assets are not licensed under the
+Apache License 2.0.
+
+Use of the Espmark name or logo must not imply official affiliation,
+endorsement, sponsorship, certification, or partnership without prior written
+permission from the Espmark project owner.
+
+Official Espmark results are valid only when produced by official Espmark
+firmware, official scoring rules, and an approved benchmark profile.
+
+Third-party forks, modified versions, unofficial benchmarks, or compatible
+tools must clearly state that they are unofficial and must not present
+themselves as the official Espmark website, leaderboard, firmware, or
+certification system.
+
+Board names, manufacturer names, product names, and silicon family names are
+used for identification and compatibility purposes. Those names may be
+trademarks of their respective owners. Their presence does not imply
+affiliation, endorsement, sponsorship, certification, or partnership.

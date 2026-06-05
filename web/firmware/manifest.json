@@ -1,54 +1,54 @@
 {
   "name": "espmark",
-  "version": "0.2.1",
+  "version": "0.2.3",
   "new_install_prompt_erase": true,
   "builds": [
     {
       "chipFamily": "ESP8266",
       "parts": [
-        { "path": "espmark-esp8266-generic-v021.bin", "offset": 0 }
+        { "path": "espmark-esp8266-generic-v023.bin", "offset": 0 }
       ]
     },
     {
       "chipFamily": "ESP32",
       "parts": [
-        { "path": "espmark-esp32-generic-v021.bin", "offset": 0 }
+        { "path": "espmark-esp32-generic-v023.bin", "offset": 0 }
       ]
     },
     {
       "chipFamily": "ESP32-C3",
       "parts": [
-        { "path": "espmark-esp32c3-generic-v021.bin", "offset": 0 }
+        { "path": "espmark-esp32c3-generic-v023.bin", "offset": 0 }
       ]
     },
     {
       "chipFamily": "ESP32-C5",
       "parts": [
-        { "path": "espmark-esp32c5-generic-v021.bin", "offset": 0 }
+        { "path": "espmark-esp32c5-generic-v023.bin", "offset": 0 }
       ]
     },
     {
       "chipFamily": "ESP32-C6",
       "parts": [
-        { "path": "espmark-esp32c6-generic-v021.bin", "offset": 0 }
+        { "path": "espmark-esp32c6-generic-v023.bin", "offset": 0 }
       ]
     },
     {
       "chipFamily": "ESP32-S2",
       "parts": [
-        { "path": "espmark-esp32s2-generic-v021.bin", "offset": 0 }
+        { "path": "espmark-esp32s2-generic-v023.bin", "offset": 0 }
       ]
     },
     {
       "chipFamily": "ESP32-S3",
       "parts": [
-        { "path": "espmark-esp32s3-generic-v021.bin", "offset": 0 }
+        { "path": "espmark-esp32s3-generic-v023.bin", "offset": 0 }
       ]
     },
     {
       "chipFamily": "ESP32-P4",
       "parts": [
-        { "path": "espmark-esp32p4-generic-v021.bin", "offset": 0 }
+        { "path": "espmark-esp32p4-generic-v023.bin", "offset": 0 }
       ]
     }
   ]

@@ -6,7 +6,7 @@
     <meta name="color-scheme" content="light dark">
     <title>Espmark</title>
     <link rel="icon" type="image/png" href="assets/favicon.png?v=202606050940">
-    <link rel="stylesheet" href="styles.css?v=202606051830">
+    <link rel="stylesheet" href="styles.css?v=202606052345">
     <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
   </head>
   <body>
@@ -14,11 +14,10 @@
       <header class="masthead">
         <a class="brand" href="/" aria-label="Espmark home">
           <img class="brand-logo brand-logo-light" src="assets/espmarklogo_light.png?v=202606042350" alt="Espmark">
-          <img class="brand-logo brand-logo-dark" src="assets/espmarklogo_dark.png?v=202606042350" alt="Espmark">
+          <img class="brand-logo brand-logo-dark" src="assets/espmarklogo_dark.png?v=202606052245" alt="Espmark">
         </a>
         <nav class="top-nav" aria-label="Main navigation">
-          <a href="#about">About</a>
-          <a href="#benchmark">Benchmark</a>
+          <a href="https://github.com/Sukecz/Espmark" rel="noopener" target="_blank">GitHub</a>
           <button class="nav-button" id="openReportDialog" type="button">Bug report</button>
           <a href="results.html">Results</a>
         </nav>
@@ -100,9 +99,10 @@
             <p>Connect the board, start the run and let the page capture the result automatically.</p>
           </div>
 
-          <div class="inline-status" aria-label="Benchmark status">
-            <span>Connection: <strong id="connectionState">Not connected</strong></span>
-            <span>Result: <strong id="resultState">Waiting</strong></span>
+          <div class="benchmark-state is-waiting" id="benchmarkStatusCard" aria-label="Benchmark status">
+            <span class="state-kicker">Benchmark state</span>
+            <strong id="resultState">Waiting</strong>
+            <span id="connectionState">Board not connected</span>
           </div>
           <p class="support-note">After flashing, reconnect the serial port if the board rebooted.</p>
         </div>
@@ -203,6 +203,10 @@
           </table>
         </div>
       </section>
+
+      <footer class="site-footer">
+        <span>Espmark project version 0.2.3</span>
+      </footer>
     </main>
 
     <dialog class="report-dialog" id="reportDialog" aria-labelledby="reportDialogTitle">
@@ -230,6 +234,6 @@
       </form>
     </dialog>
 
-    <script src="app.js?v=202606051830" type="module"></script>
+    <script src="app.js?v=202606052345" type="module"></script>
   </body>
 </html>
