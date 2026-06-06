@@ -14,6 +14,8 @@ import time
 import uuid
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
+from urllib import error as urlerror
+from urllib import request as urlrequest
 
 
 ROOT = Path(__file__).resolve().parent
@@ -31,6 +33,8 @@ SCORING_VERSION = "espmark-score-preview-3"
 REFERENCE_SET_ID = "espmark-ref-stress-preview-1"
 BENCHMARK_PROFILE = "espmark-core-stress-preview"
 TEST_SET_ID = "espmark-core-stress-preview-1"
+UMAMI_BASE_URL = os.environ.get("UMAMI_BASE_URL", "http://192.168.1.4:8096").rstrip("/")
+UMAMI_TIMEOUT_SECONDS = 5
 
 
 SCORING_METRICS = {
@@ -229,6 +233,9 @@ class EspmarkHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
     def do_GET(self):
+        if self.path == "/script":
+            self.proxy_umami("/script")
+            return
         if self.path == "/api/health":
             self.send_json({"status": "ok"})
             return
@@ -244,6 +251,9 @@ class EspmarkHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
+        if self.path == "/api/send":
+            self.proxy_umami("/api/send", method="POST")
+            return
         if self.path == "/api/score-preview":
             self.handle_score_preview()
             return
@@ -268,6 +278,12 @@ class EspmarkHandler(SimpleHTTPRequestHandler):
 
         insert_submission(record)
         self.send_json({"status": "saved", "id": record["id"], "submission": record}, status=201)
+
+    def do_HEAD(self):
+        if self.path == "/script":
+            self.proxy_umami("/script", head_only=True)
+            return
+        super().do_HEAD()
 
     def handle_score_preview(self):
         length = int(self.headers.get("Content-Length", "0"))
@@ -319,11 +335,85 @@ class EspmarkHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def proxy_umami(self, target_path, method="GET", head_only=False):
+        body = None
+        if method == "POST":
+            length = int(self.headers.get("Content-Length", "0"))
+            if length > 16 * 1024:
+                self.send_error(413)
+                return
+            body = self.rfile.read(length) if length else b""
+            if target_path == "/api/send":
+                body = normalize_umami_payload(body)
+
+        headers = {
+            "User-Agent": self.headers.get("User-Agent", ""),
+            "Referer": self.headers.get("Referer", ""),
+            "Content-Type": self.headers.get("Content-Type", ""),
+            "X-Forwarded-For": self.client_address[0],
+            "X-Forwarded-Proto": "https" if self.headers.get("X-Forwarded-Proto") == "https" else "http",
+            "X-Forwarded-Host": self.headers.get("Host", ""),
+        }
+        request = urlrequest.Request(
+            f"{UMAMI_BASE_URL}{target_path}",
+            data=body,
+            headers={key: value for key, value in headers.items() if value},
+            method=method,
+        )
+
+        try:
+            with urlrequest.urlopen(request, timeout=UMAMI_TIMEOUT_SECONDS) as response:
+                response_body = response.read()
+                self.send_response(response.status)
+                content_type = response.headers.get("Content-Type")
+                if content_type:
+                    self.send_header("Content-Type", content_type)
+                if target_path == "/script":
+                    self.send_header("Cache-Control", "public, max-age=3600")
+                else:
+                    self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(response_body)))
+                self.end_headers()
+                if not head_only:
+                    self.wfile.write(response_body)
+        except urlerror.HTTPError as error:
+            response_body = error.read()
+            self.send_response(error.code)
+            content_type = error.headers.get("Content-Type")
+            if content_type:
+                self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(response_body)))
+            self.end_headers()
+            if not head_only:
+                self.wfile.write(response_body)
+        except OSError:
+            if target_path == "/script":
+                self.send_error(502)
+            else:
+                self.send_response(204)
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
 
 def db_connect():
     connection = sqlite3.connect(DATABASE_FILE)
     connection.row_factory = sqlite3.Row
     return connection
+
+
+def normalize_umami_payload(body):
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return body
+    if not isinstance(payload, dict):
+        return body
+    event_payload = payload.get("payload")
+    if isinstance(event_payload, dict) and "data" not in event_payload:
+        event_payload["data"] = {}
+        return json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return body
 
 
 def init_database():
